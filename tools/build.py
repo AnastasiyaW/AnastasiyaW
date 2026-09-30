@@ -44,6 +44,15 @@ WIN_BLUE, WIN_GREEN, WIN_PURPLE, WIN_RUST = "#0000aa", "#008000", "#800080", "#a
 TITLE_BG, HILITE, LOG_GREEN = "#e8e8e8", "#ffff00", "#008800"
 
 W, WM = 900, 420  # desktop: GitHub's README column; mobile: a ~340px phone column
+# Windows sit PAD in from the image edges, and each block ends in PAD of sky: the
+# README stacks the blocks flush, so the starfields join into one and every gap
+# between windows is PAD.
+PAD = {False: 26, True: 14}
+
+
+def frame(mobile):
+    """The `w` a block's layout works in: its window is w - 4 wide (the rest is shadow)."""
+    return (WM if mobile else W) - 2 * PAD[mobile] + 4
 
 
 def n(v):
@@ -229,7 +238,7 @@ class Svg:
                 f"<title>{escape(self.label)}</title>{defs}{''.join(self.parts)}</svg>\n")
 
 
-def cosmos(svg, w, h, seed, count):
+def cosmos(svg, w, h, seed, count, shooting=True):
     """CosmosBG: pixel stars on pxTwinkle (steps(2) over .25 -> 1 -> .25) and shooting stars."""
     rnd = random.Random(seed)
     out = []
@@ -241,6 +250,8 @@ def cosmos(svg, w, h, seed, count):
             f'<rect x="{n(x)}" y="{n(y)}" width="{s}" height="{s}" fill="{IVORY}" opacity="0.25">'
             f'<animate attributeName="opacity" values="0.25;0.62;1;0.62" dur="{n(dur)}s" '
             f'begin="-{n(delay)}s" calcMode="discrete" repeatCount="indefinite"/></rect>')
+    if not shooting:
+        return "".join(out)
     svg.define("shoot", '<linearGradient id="shoot"><stop offset="0" stop-color="#e8e4d4" stop-opacity="0"/>'
                         '<stop offset=".45" stop-color="#e8e4d4"/><stop offset=".85" stop-color="#fff"/>'
                         '<stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>')
@@ -287,11 +298,20 @@ def window(svg, x, y, w, h, title, accent, body="#fff", body_opacity=None):
     return before, after
 
 
-def panel(w, h, title, accent, dark, parts, label):
-    """A full-width window image: the window, its shadow, and nothing else."""
-    svg = Svg(w, h + 3, label)
-    before, after = window(svg, 0, 0, w - 4, h, title, accent, VOID if dark else "#fff")
-    svg.add(before, *parts, after)
+def sky(svg, w, h, seed, shooting=False):
+    """The page's backdrop: void, with the header's star density and its twinkle."""
+    return rect(0, 0, w, h, VOID) + cosmos(svg, w, h, seed, round(w * h / 4500), shooting)
+
+
+def panel(h, title, accent, dark, parts, label, mobile, seed):
+    """One block of the page: sky edge to edge, one window PAD in from the sides.
+
+    `parts` are laid out for a window at (0, 0) that is frame(mobile) - 4 wide."""
+    sw, pad = (WM if mobile else W), PAD[mobile]
+    svg = Svg(sw, h + pad, label)
+    before, after = window(svg, 0, 0, sw - 2 * pad, h, title, accent, VOID if dark else "#fff",
+                           0.62 if dark else None)
+    svg.add(sky(svg, sw, h + pad, seed), f'<g transform="translate({pad} 0)">', before, *parts, after, "</g>")
     return svg.render()
 
 
@@ -424,15 +444,15 @@ def readme_body(x, y, w, mobile):
 
 def header(mobile=False):
     w = WM if mobile else W
-    pad = 14 if mobile else 26
+    pad = PAD[mobile]
     probe = Svg(w, 0, "")  # collects defs while the windows are measured
     menu, mh = menu_bar(w, mobile)
     cr, ch = crumb(mh, w, "github", mobile)
-    y0 = mh + ch + (16 if mobile else 26)
+    y0 = mh + ch + pad
     if mobile:
-        term_w = w - 2 * pad - 3
+        term_w = w - 2 * pad
         term_inner, term_end = terminal_body(probe, pad, y0 + BODY_TOP, term_w, True)
-        win_x, win_y, win_w = pad, term_end + 18, term_w
+        win_x, win_y, win_w = pad, term_end + pad, term_w
     else:
         term_w = 522
         term_inner, term_end = terminal_body(probe, pad, y0 + BODY_TOP, term_w, False)
@@ -441,12 +461,12 @@ def header(mobile=False):
     readme_inner, readme_end = readme_body(win_x, win_y + BODY_TOP, win_w, mobile)
     if not mobile:  # side by side: both windows end on the same line, as on the site
         term_end = readme_end = max(term_end, readme_end)
-    H = int(max(term_end, readme_end) + (18 if mobile else 30))
+    H = int(max(term_end, readme_end) + pad)
 
     svg = Svg(w, H, "Anastasiia Butova — ComfyUI specialist; 20+ years in graphics, 4+ years of neural networks "
                     "for images; image-processing pipelines, diffusion models. Belgrade, Serbia. happyin.work")
     svg.defs = probe.defs
-    svg.add(rect(0, 0, w, H, VOID), cosmos(svg, w, H, seed=1440, count=45 if mobile else 90), menu, cr)
+    svg.add(sky(svg, w, H, seed=1440, shooting=True), menu, cr)
     before, after = window(svg, pad, y0, term_w, term_end - y0, "happyinhappy@happyin.work — github",
                            PHOSPHOR, VOID, 0.62)
     svg.add(before, term_inner, after)
@@ -456,54 +476,55 @@ def header(mobile=False):
 
 
 # --------------------------------------------------------------------------
-# Production work: one Win 3.1 window per project, two per row
+# Production work: four small Win 3.1 windows in a row (two by two on phones)
 # --------------------------------------------------------------------------
 
-def project_card(project, side, mobile, body_h=None):
-    """Half of a two-up row. The image is half the column; the right card is
-    inset so both windows are equal and the right one ends exactly where the
-    full-width panels end (x = total - 4). The phone card keeps the name and
-    the kicker and drops the blurb, which could not be read at that size."""
-    slug, name, kicker, blurb, swatch, accent = project
-    total = WM if mobile else W
-    half = total // 2
-    gap = 8 if mobile else 10
-    inset = (gap - 4) / 2
-    ww = half - 4 - inset
-    x0 = inset if side else 0
-    px = 12 if mobile else 16
-    ix, iw = x0 + px, ww - 2 * px
+def projects(mobile):
+    """One image for all four projects, so the row sits on the same sky.
 
-    out, y = [], BODY_TOP + (10 + 18 if mobile else 14 + 22)
-    out.append(rect(ix, y - (12 if mobile else 14), 10, 9, swatch, ' stroke="#000"'))
-    out.append(text("serif-italic", name, 21 if mobile else 26, ix + 17, y, "#000"))
-    y += 17 if mobile else 21
-    k, y = paragraph([(kicker.upper(), style("mono", "#555", tracking=0.08))], 10.5, ix, y, iw,
-                     15 if mobile else 15.5)
-    out.append(k)
-    if not mobile:
-        y += 7
-        b, y = paragraph([(blurb, style("times", "#111"))], 15.5, ix, y, iw, 21)
+    One image means one link (happyin.work lists them all); each window names
+    its own page."""
+    sw, pad = (WM if mobile else W), PAD[mobile]
+    cols = 2 if mobile else 4
+    gap = 12 if mobile else 14
+    cw = (sw - 2 * pad - (cols - 1) * gap) / cols
+    px = 10 if mobile else 12
+    iw = cw - 2 * px
+    name_size, blurb_size, blurb_lead = (20, 13, 17.5) if mobile else (22, 13.5, 18)
+
+    def card(p, x, y, body_h=None):
+        out, cy = [], y + BODY_TOP + 12 + name_size * 0.9
+        out.append(rect(x + px, cy - 13, 10, 9, p["swatch"], ' stroke="#000"'))
+        out.append(text("serif-italic", fit("serif-italic", p["name"], name_size, iw - 17), name_size,
+                        x + px + 17, cy, "#000"))
+        cy += 17
+        k, cy = paragraph([(p["kicker"].upper(), style("mono", "#555", tracking=0.06))], 9, x + px, cy, iw, 13.5)
+        out.append(k)
+        cy += 5
+        b, cy = paragraph([(p["blurb"], style("times", "#111"))], blurb_size, x + px, cy, iw, blurb_lead)
         out.append(b)
-    content_end = y
-    if body_h is not None:
-        y = BODY_TOP + body_h
-    y += 4
-    out.append(hline(ix, ix + iw, y, "#ccc", "1 2"))
-    y += 16
-    if mobile:
-        out.append(text("mono", "[enter →]", 10.5, ix, y, WIN_GREEN))
-    else:
-        out.append(runs([("▸ ", style("mono", "#000")),
-                         (f"happyin.work/{slug}/", style("mono", WIN_BLUE, underline=True))], 10.5, ix, y)[0])
-        out.append(text("mono", "[enter →]", 10.5, ix + iw, y, WIN_GREEN, anchor="end"))
-    h = y + (10 if mobile else 12)
+        content = cy - blurb_lead - y
+        cy = y + (body_h if body_h is not None else content) + 12
+        out.append(hline(x + px, x + px + iw, cy, "#ccc", "1 2"))
+        cy += 15
+        out.append(runs([("▸ ", style("mono", "#000")), (f"happyin.work/{p['slug']}/", style("mono", WIN_BLUE))],
+                        9.5, x + px, cy)[0])
+        return out, content, cy + 9 - y
 
-    # no bottom margin: the shadow plus the inline image's line gap make the row gap
-    svg = Svg(half, h + 3, f"{name} — {kicker}. {blurb}")
-    before, after = window(svg, x0, 0, ww, h, f"{slug}.md", accent)
-    svg.add(before, *out, after)
-    return svg.render(), content_end - BODY_TOP
+    tallest = max(card(p, 0, 0)[1] for p in PRODUCTION)
+    card_h = card(PRODUCTION[0], 0, 0, tallest)[2]
+    rows = -(-len(PRODUCTION) // cols)
+    H = rows * card_h + (rows - 1) * gap + pad
+    label = "Projects — " + "; ".join(f"{p['name']}: {p['kicker']}. {p['blurb']}" for p in PRODUCTION)
+    svg = Svg(sw, H, label)
+    svg.add(sky(svg, sw, H, seed=2024))
+    for i, p in enumerate(PRODUCTION):
+        x = pad + (i % cols) * (cw + gap)
+        y = (i // cols) * (card_h + gap)
+        parts, _, _ = card(p, x, y, tallest)
+        before, after = window(svg, x, y, cw, card_h, f"{p['slug']}.md", p["accent"])
+        svg.add(before, *parts, after)
+    return svg.render()
 
 
 # --------------------------------------------------------------------------
@@ -545,7 +566,7 @@ def bars(x, y, w, h, months, as_of):
 
 
 def knowledge_base(stats, kb, mobile):
-    w = WM if mobile else W
+    w = frame(mobile)
     px = 14 if mobile else 16
     inner = w - 4 - 2 * px
     col_w = inner if mobile else 420
@@ -603,7 +624,7 @@ def knowledge_base(stats, kb, mobile):
     label = (f"happyin.space — knowledge base, {articles:,}+ articles in {stats['domains']} domains. "
              f"{stats['page_views_total']:,} page views since {stats['since']} and {stats['page_views_30d']:,} "
              f"in the 30 days to {stats['as_of']} (Cloudflare; people and AI agents).")
-    return panel(w, h, "knowledge-base.md", WIN_GREEN, False, out, label)
+    return panel(h, "knowledge-base.md", WIN_GREEN, False, out, label, mobile, seed=2025)
 
 
 # --------------------------------------------------------------------------
@@ -611,7 +632,7 @@ def knowledge_base(stats, kb, mobile):
 # --------------------------------------------------------------------------
 
 def stack(models, mobile):
-    w = WM if mobile else W
+    w = frame(mobile)
     pad = 16 if mobile else 22
     size, lead = (12, 19) if mobile else (12.5, 21)
     lines = STACK + [("huggingface", f"{len(models)} open models on huggingface.co/{HF['user']} · {HF['summary']}")]
@@ -623,7 +644,8 @@ def stack(models, mobile):
         y += 4 if mobile else 3
     h = y - lead + pad - 2
     title = "stack.md" if mobile else "happyinhappy@happyin.work — stack.md"
-    return panel(w, h, title, PHOSPHOR, True, out, "Stack — " + "; ".join(f"{t}: {v}" for t, v in lines))
+    label = "Stack — " + "; ".join(f"{t}: {v}" for t, v in lines)
+    return panel(h, title, PHOSPHOR, True, out, label, mobile, seed=2026)
 
 
 # --------------------------------------------------------------------------
@@ -634,8 +656,8 @@ with open(os.path.join(HERE, "happyin-copy.json"), encoding="utf-8") as _fh:
 
 # swatch (the site's projects/ list) and window accent, in the order of COPY["production"]
 CARD_COLOURS = [("#ffd0a0", WIN_BLUE), ("#c0d8f0", WIN_GREEN), ("#f0c0d0", WIN_PURPLE), ("#e0d090", WIN_RUST)]
-PRODUCTION = [(p["slug"], p["name"], p["kicker"], p["blurb"], *colours)
-              for p, colours in zip(COPY["production"], CARD_COLOURS, strict=True)]
+PRODUCTION = [{**p, "swatch": swatch, "accent": accent}
+              for p, (swatch, accent) in zip(COPY["production"], CARD_COLOURS, strict=True)]
 STACK = [tuple(x) for x in COPY["stack"]]
 KB, HF = COPY["knowledge_base"], COPY["huggingface"]
 
@@ -661,10 +683,7 @@ def main():
 
     for mobile, prefix in [(False, ""), (True, "mobile/")]:
         write(f"{prefix}header.svg", header(mobile))
-        # equal-height windows: measure every card, then draw all at the tallest
-        tallest = max(project_card(p, i % 2, mobile)[1] for i, p in enumerate(PRODUCTION))
-        for i, p in enumerate(PRODUCTION):
-            write(f"{prefix}project-{p[0]}.svg", project_card(p, i % 2, mobile, body_h=tallest)[0])
+        write(f"{prefix}happyin-projects.svg", projects(mobile))
         write(f"{prefix}knowledge-base.svg", knowledge_base(kb_stats, KB, mobile))
         write(f"{prefix}stack.svg", stack(models, mobile))
     print(f"knowledge base as of {kb_stats['as_of']}; {len(models)} public models on Hugging Face")

@@ -1,24 +1,55 @@
 {
-  "_source": "happyin.work: pages/_assets/site-data.js (projectGroups) and the Person node's knowsAbout; the knowledge-base blurb joins the site's happyin.space card with the knowledge-space repo description; kept out of build.py so the code carries no project names",
+  "_source": "happyin.work: pages/_assets/site-data.js (projectGroups, blurbs shortened for the one-row window) and the Person node's knowsAbout; the knowledge-base blurb joins the site's happyin.space card with the knowledge-space repo description; kept out of build.py so the code carries no project names",
   "production": [
-    {"slug": "glam", "name": "glam.ai", "kicker": "ML engineering & team lead (ex-) · 4M+ users",
-     "blurb": "Identity-preserving photoshoot, multi-angle, trend looks, fix-everything. Five chained Qwen pipelines in production."},
-    {"slug": "mashinki", "name": "mashinki", "kicker": "Dealer photo pipeline · architecture + ML",
-     "blurb": "Automated exterior and interior retouch for car dealerships: segmentation, glass relight, plate replacement, background replacement. Try it in the browser."},
-    {"slug": "happyin-ai", "name": "happyin.ai", "kicker": "Own R&D studio · founder",
-     "blurb": "C++ Photoshop plugin + on-device retouching models. Custom-trained networks, novel hi-res tiling architectures."},
-    {"slug": "ois-gold", "name": "ois.gold", "kicker": "Jewellery retouching SaaS · sole tech lead",
-     "blurb": "End-to-end SaaS for jewellery image processing. CV pipeline for 6K-10K pixel images, 1,500+ active users."}
+    {
+      "slug": "glam",
+      "name": "glam.ai",
+      "kicker": "ML engineering & team lead (ex-) · 4M+ users",
+      "blurb": "Identity-preserving photoshoots; five chained Qwen pipelines in production."
+    },
+    {
+      "slug": "mashinki",
+      "name": "mashinki",
+      "kicker": "Dealer photo pipeline · architecture + ML",
+      "blurb": "Car-dealer photo retouch: segmentation, glass relight, plates and backgrounds."
+    },
+    {
+      "slug": "happyin-ai",
+      "name": "happyin.ai",
+      "kicker": "Own R&D studio · founder",
+      "blurb": "C++ Photoshop plugin with custom-trained, on-device retouching models."
+    },
+    {
+      "slug": "ois-gold",
+      "name": "ois.gold",
+      "kicker": "Jewellery retouching SaaS · sole tech lead",
+      "blurb": "Jewellery retouching SaaS: CV pipeline for 6K-10K px images, 1,500+ users."
+    }
   ],
   "knowledge_base": {
     "blurb": "A curated reference library, agent-ready and human-legible: dense articles with wiki-links, gotchas and runnable code, built for AI agents instead of vector embeddings."
   },
   "stack": [
-    ["pipelines", "ComfyUI graphs · custom nodes · Diffusers · GPU queues and APIs"],
-    ["models", "FLUX.2 · Qwen Image Edit · Stable Diffusion · LoRA training · SAM3 · YOLO · NAFNet"],
-    ["vision", "segmentation · restoration · super-resolution · colour · quality assessment"],
-    ["code", "Python · PyTorch · ONNX Runtime · C++"],
-    ["agents", "Claude Code · Codex · MCP"]
+    [
+      "pipelines",
+      "ComfyUI graphs · custom nodes · Diffusers · GPU queues and APIs"
+    ],
+    [
+      "models",
+      "FLUX.2 · Qwen Image Edit · Stable Diffusion · LoRA training · SAM3 · YOLO · NAFNet"
+    ],
+    [
+      "vision",
+      "segmentation · restoration · super-resolution · colour · quality assessment"
+    ],
+    [
+      "code",
+      "Python · PyTorch · ONNX Runtime · C++"
+    ],
+    [
+      "agents",
+      "Claude Code · Codex · MCP"
+    ]
   ],
   "huggingface": {
     "user": "happyinhappy",
