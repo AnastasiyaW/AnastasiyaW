@@ -2,7 +2,8 @@
 
 GitHub shows README images through its camo proxy as plain <img> SVGs, and an
 <img> SVG cannot load a webfont, so every letter here ships as an outline in
-the two faces happyin.work uses: JetBrains Mono and Instrument Serif.
+the faces happyin.work uses: JetBrains Mono, Instrument Serif italic for
+window headings, and a Times-metric serif (Tinos) for running text.
 
 Each glyph is drawn once, in font units, into the document's <defs>; a run of
 text is one scaled group of <use> references. That keeps a text-heavy card
@@ -21,8 +22,9 @@ FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
 FACES = {
     "mono": ("JetBrainsMono[wght].ttf", {"wght": 400}, "m"),
     "mono-bold": ("JetBrainsMono[wght].ttf", {"wght": 700}, "b"),
-    "serif": ("InstrumentSerif-Regular.ttf", {}, "s"),
-    "serif-italic": ("InstrumentSerif-Italic.ttf", {}, "i"),
+    "serif-italic": ("InstrumentSerif-Italic.ttf", {}, "i"),  # RHead: window headings
+    "times": ("Tinos-Regular.ttf", {}, "t"),  # running text the site sets in `Times, serif`
+    "times-italic": ("Tinos-Italic.ttf", {}, "u"),
 }
 
 # Glyphs placed since the last glyph_defs() call: one document at a time.

@@ -1,8 +1,9 @@
 """Render README.md the way GitHub will, to look at it before pushing.
 
-The README goes through GitHub's Markdown API (the renderer the profile page
-uses) and is wrapped in github-markdown-css at the width of a profile README
-column, once light and once dark. Output: preview/index.html (gitignored).
+The README goes through GitHub's Markdown API in "markdown" mode (the one
+README files get; "gfm" would turn every newline into a <br>) and is
+wrapped in github-markdown-css at the width of a profile README column,
+once light and once dark. Output: preview/index.html (gitignored).
 
     python tools/preview.py
     python -m http.server 8765        # from the repo root, then open /preview/
@@ -39,7 +40,7 @@ t.onchange=()=>set(t.checked);set(location.hash==='#dark');
 def render(markdown):
     req = urllib.request.Request(
         "https://api.github.com/markdown",
-        data=json.dumps({"text": markdown, "mode": "gfm", "context": "AnastasiyaW/AnastasiyaW"}).encode(),
+        data=json.dumps({"text": markdown, "mode": "markdown", "context": "AnastasiyaW/AnastasiyaW"}).encode(),
         headers={"Accept": "application/vnd.github+json", "User-Agent": "AnastasiyaW-profile"})
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if token:
@@ -52,8 +53,8 @@ def main():
     with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as fh:
         html = render(fh.read())
     # the API points images at the not-yet-pushed repo; serve the local build instead
-    html = re.sub(r'src="(?:https://github\.com/AnastasiyaW/AnastasiyaW/(?:raw|blob)/[^/]+/)?assets/',
-                  'src="../assets/', html)
+    html = re.sub(r'(src|srcset)="(?:https://github\.com/AnastasiyaW/AnastasiyaW/(?:raw|blob)/[^/]+/)?assets/',
+                  lambda m: f'{m.group(1)}="../assets/', html)
     out = os.path.join(ROOT, "preview")
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "index.html"), "w", encoding="utf-8", newline="\n") as fh:

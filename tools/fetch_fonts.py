@@ -1,6 +1,6 @@
-"""Download the two typefaces happyin.work uses into tools/fonts/.
+"""Download the typefaces happyin.work uses into tools/fonts/.
 
-Both come from google/fonts at a pinned commit and are checked against a
+Each comes from google/fonts at a pinned commit and are checked against a
 SHA-256, so a rebuild months later typesets from exactly the same outlines.
 """
 
@@ -17,12 +17,16 @@ PINNED = [
     ("6e4b84c976cadb3c49a40fd9a1c203e4f7fcf2da", "ofl/jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf",
      "JetBrainsMono[wght].ttf",
      "48715a42ec242c21e9f02692891e147d022299a52e48d5e413e1a942193ffeda"),
-    ("0b58fb370093f9a9f4ff785d94405710b79de67c", "ofl/instrumentserif/InstrumentSerif-Regular.ttf",
-     "InstrumentSerif-Regular.ttf",
-     "498efd461f6ddfcb7a111bf9a565709d2085d48201d501ead960d93e84ffbb88"),
     ("0b58fb370093f9a9f4ff785d94405710b79de67c", "ofl/instrumentserif/InstrumentSerif-Italic.ttf",
      "InstrumentSerif-Italic.ttf",
      "08939b8bdf534afec24ae0ef5e03f948940cd9a8fe08e7fecbad040e62327385"),
+    # Times-metric, for the running text the site sets in `Times, serif`
+    ("ba95515f1333efe9342c2ad988b9c2f6bef6dbad", "ofl/tinos/Tinos-Regular.ttf",
+     "Tinos-Regular.ttf",
+     "60a0e8ef0c04dd5dd69ffe91025fa2ae5836cbd35600a82ba031977557e2cb61"),
+    ("ba95515f1333efe9342c2ad988b9c2f6bef6dbad", "ofl/tinos/Tinos-Italic.ttf",
+     "Tinos-Italic.ttf",
+     "5942266ed398b155d7dc23e36833e7ec6be988f2439bdbeb8ef1bede808eaa91"),
 ]
 
 
