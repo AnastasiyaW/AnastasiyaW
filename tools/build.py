@@ -444,7 +444,7 @@ def header(mobile=False):
     H = int(max(term_end, readme_end) + (18 if mobile else 30))
 
     svg = Svg(w, H, "Anastasiia Butova — ComfyUI specialist; 20+ years in graphics, 4+ years of neural networks "
-                    "for image processing; image-processing pipelines, diffusion models. Belgrade, Serbia. happyin.work")
+                    "for images; image-processing pipelines, diffusion models. Belgrade, Serbia. happyin.work")
     svg.defs = probe.defs
     svg.add(rect(0, 0, w, H, VOID), cosmos(svg, w, H, seed=1440, count=45 if mobile else 90), menu, cr)
     before, after = window(svg, pad, y0, term_w, term_end - y0, "happyinhappy@happyin.work — github",
