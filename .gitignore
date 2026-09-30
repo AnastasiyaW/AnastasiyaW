@@ -1,0 +1,8 @@
+# Fonts are OFL files owned by their foundries; tools/fetch_fonts.py pulls them
+tools/fonts/
+
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+preview/
