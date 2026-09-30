@@ -486,30 +486,38 @@ def projects(mobile):
     its own page."""
     sw, pad = (WM if mobile else W), PAD[mobile]
     cols = 2 if mobile else 4
-    gap = 12 if mobile else 14
+    gap = PAD[mobile] if mobile else 20
     cw = (sw - 2 * pad - (cols - 1) * gap) / cols
     px = 10 if mobile else 12
     iw = cw - 2 * px
-    name_size, blurb_size, blurb_lead = (20, 13, 17.5) if mobile else (22, 13.5, 18)
+    name_size, blurb_size, blurb_lead = (20, 14, 18) if mobile else (22, 13.5, 18)
+    # small caps stay >= 11px on screen at GitHub's scale; every card reserves the
+    # most kicker lines any card needs, so the blurbs start on one line across the row
+    kicker_size, kicker_lead = (12, 16) if mobile else (11, 15)
+    kicker_style = style("mono", "#555", tracking=0.04)
+    kicker_lines = max(len(wrap([(p["kicker"].upper(), kicker_style)], kicker_size, iw)) for p in PRODUCTION)
 
     def card(p, x, y, body_h=None):
         out, cy = [], y + BODY_TOP + 12 + name_size * 0.9
         out.append(rect(x + px, cy - 13, 10, 9, p["swatch"], ' stroke="#000"'))
         out.append(text("serif-italic", fit("serif-italic", p["name"], name_size, iw - 17), name_size,
                         x + px + 17, cy, "#000"))
-        cy += 17
-        k, cy = paragraph([(p["kicker"].upper(), style("mono", "#555", tracking=0.06))], 9, x + px, cy, iw, 13.5)
+        cy += 18
+        k, _ = paragraph([(p["kicker"].upper(), kicker_style)], kicker_size, x + px, cy, iw, kicker_lead)
         out.append(k)
-        cy += 5
+        cy += kicker_lines * kicker_lead + 4
         b, cy = paragraph([(p["blurb"], style("times", "#111"))], blurb_size, x + px, cy, iw, blurb_lead)
         out.append(b)
         content = cy - blurb_lead - y
-        cy = y + (body_h if body_h is not None else content) + 12
+        bottom = y + (body_h if body_h is not None else content)
+        if mobile:  # the whole image is the link; a URL line would only be small print
+            return out, content, bottom + 14 - y
+        cy = bottom + 12
         out.append(hline(x + px, x + px + iw, cy, "#ccc", "1 2"))
-        cy += 15
-        out.append(runs([("▸ ", style("mono", "#000")), (f"happyin.work/{p['slug']}/", style("mono", WIN_BLUE))],
-                        9.5, x + px, cy)[0])
-        return out, content, cy + 9 - y
+        cy += 17
+        url = fit("mono", f"happyin.work/{p['slug']}/", 11, iw - width("mono", "▸ ", 11))
+        out.append(runs([("▸ ", style("mono", "#000")), (url, style("mono", WIN_BLUE))], 11, x + px, cy)[0])
+        return out, content, cy + 10 - y
 
     tallest = max(card(p, 0, 0)[1] for p in PRODUCTION)
     card_h = card(PRODUCTION[0], 0, 0, tallest)[2]
@@ -585,7 +593,7 @@ def knowledge_base(stats, kb, mobile):
     since = dt.date.fromisoformat(stats["since"])
     # the daily average, not the 30-day sum: at a month's end that sum is the last bar's label again
     cells = [(compact(stats["page_views_total"]), f"page views since {MONTHS[since.month - 1].title()} {since.year}"),
-             (compact(stats["page_views_30d"] / 30), "page views a day, last 30 days")]
+             (compact(stats["page_views_30d"] / 30), "page views per day · last 30 days")]
     vy, ends = y + 32, []
     for i, (value, caption) in enumerate(cells):
         cx = px + i * col_w / 2
