@@ -9,10 +9,12 @@ repository numbers are read from the GitHub API on every build.
 
 Type ships as outlines: GitHub serves README images through camo as <img>,
 and an <img> SVG cannot load webfonts. Desktop artwork is drawn 900px wide,
-which GitHub's profile column shows at about 0.94. A second set of the
-full-width panels in assets/mobile/ is drawn 420px wide for phones, where the
-README swaps it in with <picture><source media="(max-width: 600px)">: desktop
-art scaled to a phone would put body text at 5px.
+which GitHub's profile column shows at about 0.94. A second set in
+assets/mobile/ is drawn 420px wide for phones, where the README swaps it in
+with <picture><source media="(max-width: 600px)">: desktop art scaled to a
+phone would put body text at 5px. (GitHub's Markdown API pulls the <img> out
+of a linked <picture>, but github.com itself keeps it, so the local preview
+cannot show the phone set.)
 
     python tools/fetch_fonts.py
     uv run --no-project --with fonttools --with uharfbuzz python tools/build.py
@@ -100,11 +102,24 @@ def runs(parts, size, x, y):
     return "".join(back + front), cx - x
 
 
+NBSP, SEP = " ", " · "
+
+
+def unbreakable_list(s):
+    """`a b · c d` -> items that never split, a separator glued to the item before it.
+
+    The site's copy strings lists with " · ". Wrapping one inside an item, or
+    starting a line with "·", reads as broken; so each item holds together, the
+    line may only break after a separator, and wrap() drops a separator that
+    lands at the end of a line."""
+    return (NBSP + "· ").join(item.replace(" ", NBSP) for item in s.split(SEP)) if SEP in s else s
+
+
 def wrap(parts, size, maxw):
     """Greedy word wrap over styled runs; returns a list of run lists."""
     words, cur = [], []
     for s, st in parts:
-        for piece in re.split(r"( )", s):
+        for piece in re.split(r"( )", unbreakable_list(s)):
             if piece == " ":
                 words.append((cur, (" ", st)))
                 cur = []
@@ -113,13 +128,36 @@ def wrap(parts, size, maxw):
     if cur:
         words.append((cur, None))
 
-    lines, line, lw = [], [], 0.0
+    def close(line):
+        if line[-1][0] == " ":
+            line.pop()
+        s, st = line[-1]
+        if s.endswith(NBSP + "·"):
+            line[-1] = (s[:-2], st)
+        lines.append(line)
+
+    def measure(toks):
+        return sum(width(st["face"], s, size, st.get("tracking", 0.0)) for s, st in toks)
+
+    # a list item wider than the whole line breaks at its own spaces after all
+    split = []
     for toks, space in words:
-        ww = sum(width(st["face"], s, size, st.get("tracking", 0.0)) for s, st in toks)
+        if len(toks) == 1 and NBSP in toks[0][0] and measure(toks) > maxw:
+            s, st = toks[0]
+            parts_ = s.split(NBSP)
+            if parts_[-1] == "·":
+                parts_[-2:] = [parts_[-2] + NBSP + "·"]
+            split += [([(p, st)], (" ", st)) for p in parts_[:-1]] + [([(parts_[-1], st)], space)]
+        else:
+            split.append((toks, space))
+
+    lines, line, lw = [], [], 0.0
+    for toks, space in split:
+        ww = measure(toks)
+        if ww > maxw:
+            raise SystemExit(f"{''.join(s for s, _ in toks)!r} is {ww:.0f}px and cannot wrap into {maxw:.0f}px")
         if line and lw + ww > maxw:
-            if line[-1][0] == " ":
-                line.pop()
-            lines.append(line)
+            close(line)
             line, lw = [], 0.0
         line.extend(toks)
         lw += ww
@@ -127,9 +165,7 @@ def wrap(parts, size, maxw):
             line.append(space)
             lw += width(space[1]["face"], " ", size)
     if line:
-        if line[-1][0] == " ":
-            line.pop()
-        lines.append(line)
+        close(line)
     return lines
 
 
@@ -382,7 +418,7 @@ def readme_body(x, y, w, mobile):
 def header(mobile=False):
     w = WM if mobile else W
     pad = 14 if mobile else 26
-    probe = Svg(w, 0, "")
+    probe = Svg(w, 0, "")  # collects defs while the windows are measured
     menu, mh = menu_bar(w, mobile)
     cr, ch = crumb(mh, w, "github", mobile)
     y0 = mh + ch + (16 if mobile else 26)
@@ -426,42 +462,48 @@ def label(cmd):
 # Production work: one Win 3.1 window per project, two per row
 # --------------------------------------------------------------------------
 
-def project_card(project, side, body_h=None):
+def project_card(project, side, mobile, body_h=None):
     """Half of a two-up row. The image is half the column; the right card is
     inset so both windows are equal and the right one ends exactly where the
-    full-width panels end (x = W - 4).
-
-    Desktop only: GitHub pulls an <img> out of a linked <picture>, so a card
-    can have its link or a phone variant, not both, and the link matters more."""
+    full-width panels end (x = total - 4). The phone card keeps the name and
+    the kicker and drops the blurb, which could not be read at that size."""
     slug, name, kicker, blurb, swatch, accent = project
-    half, gap = W // 2, 10
+    total = WM if mobile else W
+    half = total // 2
+    gap = 8 if mobile else 10
     inset = (gap - 4) / 2
     ww = half - 4 - inset
     x0 = inset if side else 0
-    px = 16
+    px = 12 if mobile else 16
     ix, iw = x0 + px, ww - 2 * px
 
-    out, y = [], BODY_TOP + 14 + 22
-    out.append(rect(ix, y - 14, 10, 9, swatch, ' stroke="#000"'))
-    out.append(text("serif-italic", name, 26, ix + 17, y, "#000"))
-    y += 21
-    k, y = paragraph([(kicker.upper(), style("mono", "#555", tracking=0.08))], 10.5, ix, y, iw, 15.5)
+    out, y = [], BODY_TOP + (10 + 18 if mobile else 14 + 22)
+    out.append(rect(ix, y - (12 if mobile else 14), 10, 9, swatch, ' stroke="#000"'))
+    out.append(text("serif-italic", name, 21 if mobile else 26, ix + 17, y, "#000"))
+    y += 17 if mobile else 21
+    k, y = paragraph([(kicker.upper(), style("mono", "#555", tracking=0.08))], 10.5, ix, y, iw,
+                     15 if mobile else 15.5)
     out.append(k)
-    y += 7
-    b, y = paragraph([(blurb, style("times", "#111"))], 15.5, ix, y, iw, 21)
-    out.append(b)
+    if not mobile:
+        y += 7
+        b, y = paragraph([(blurb, style("times", "#111"))], 15.5, ix, y, iw, 21)
+        out.append(b)
     content_end = y
     if body_h is not None:
         y = BODY_TOP + body_h
     y += 4
     out.append(hline(ix, ix + iw, y, "#ccc", "1 2"))
     y += 16
-    out.append(runs([("▸ ", style("mono", "#000")),
-                     (f"happyin.work/{slug}/", style("mono", WIN_BLUE, underline=True))], 10.5, ix, y)[0])
-    out.append(text("mono", "[enter →]", 10.5, ix + iw, y, WIN_GREEN, anchor="end"))
-    h = y + 12
+    if mobile:
+        out.append(text("mono", "[enter →]", 10.5, ix, y, WIN_GREEN))
+    else:
+        out.append(runs([("▸ ", style("mono", "#000")),
+                         (f"happyin.work/{slug}/", style("mono", WIN_BLUE, underline=True))], 10.5, ix, y)[0])
+        out.append(text("mono", "[enter →]", 10.5, ix + iw, y, WIN_GREEN, anchor="end"))
+    h = y + (10 if mobile else 12)
 
-    svg = Svg(half, h + 3 + 6, f"{name} — {kicker}. {blurb}")
+    # no bottom margin: the shadow plus the inline image's line gap make the row gap
+    svg = Svg(half, h + 3, f"{name} — {kicker}. {blurb}")
     before, after = window(svg, x0, 0, ww, h, f"{slug}.md", accent)
     svg.add(before, *out, after)
     return svg.render(), content_end - BODY_TOP
@@ -470,13 +512,6 @@ def project_card(project, side, body_h=None):
 # --------------------------------------------------------------------------
 # Open source: the site's open-source group as a terminal listing, live numbers
 # --------------------------------------------------------------------------
-
-OSS = [  # site-data.js, projectGroups "open source"; one-liners from the site's blurbs
-    ("codex-claude-code-config", "Drop-in rulebook for Claude Code and Codex agents: 30 principles, 40+ hooks, 58 skills."),
-    ("knowledge-space", "happyin.space: 1,287+ reference articles across 28 domains, written for AI agents."),
-    ("mclaude", "Multi-session infrastructure for Claude Code: locks, handoffs, memory, messaging."),
-]
-
 
 def open_source(repos, mobile):
     w = WM if mobile else W
@@ -522,14 +557,7 @@ def open_source(repos, mobile):
 def production_log(stars, mobile):
     w = WM if mobile else W
     px = 14 if mobile else 16
-    groups = [
-        ("shipped", [("4M+", "users of AI features shipped at Glam.ai"),
-                     ("80×H200", "GPU training cluster I ran"),
-                     ("1,500+", "active users of ois.gold")]),
-        ("open-source", [(str(stars), "GitHub stars on public repos"),
-                         ("1,287+", "reference articles on happyin.space"),
-                         ("32K+", "readers reached on Habr")]),
-    ]
+    groups = [(title, [(v.replace("{stars}", str(stars)), c) for v, c in cells]) for title, cells in LOG]
     value_size = 22 if mobile else 27
     per_row = 3 if mobile else 6
     cell_w = (w - 4 - 2 * px) / per_row
@@ -542,7 +570,7 @@ def production_log(stars, mobile):
             out.append(star(cx + width("mono-bold", value, value_size) + value_size * 0.45,
                             cy - value_size * 0.36, value_size * 0.33, LOG_GREEN))
         cap, end = paragraph([(caption.upper(), style("mono", "#555", tracking=0.08))], 9, cx, cy + 20,
-                             cell_w - 14, 13.5, max_lines=None if mobile else 2)
+                             cell_w - 10 if mobile else cell_w - 20, 13.5, max_lines=2)
         out.append(cap)
         return end
 
@@ -552,7 +580,7 @@ def production_log(stars, mobile):
         else:
             gx, gy = px + g * 3 * cell_w, top
         out.append(runs([("▸ ", style("mono", "#000")), (title, style("mono-bold", "#000"))], 11, gx, gy + 12)[0])
-        ends = [cell(gx + i * cell_w, gy + 12 + value_size + 10, v, c, title == "open-source" and i == 0)
+        ends = [cell(gx + i * cell_w, gy + 12 + value_size + 10, v, c, c.startswith("GitHub stars"))
                 for i, (v, c) in enumerate(cells)]
         bottom = max(ends)
         if mobile:
@@ -569,16 +597,6 @@ def production_log(stars, mobile):
 # --------------------------------------------------------------------------
 # stack.md: the site's `# tag.` lines (THash), from the Person node's knowsAbout
 # --------------------------------------------------------------------------
-
-STACK = [
-    ("pipelines", "ComfyUI graphs · custom nodes · ComfyUI API · Diffusers · headless GPU queues and APIs"),
-    ("models", "FLUX.2 · Qwen Image Edit · Stable Diffusion · LoRA fine-tuning · SAM3 · YOLO · NAFNet"),
-    ("vision", "segmentation · restoration and denoising · super-resolution · colour correction · 3D LUTs"),
-    ("quality", "image quality assessment · measurable acceptance checks · fixed-seed comparison sheets"),
-    ("engineering", "Python · PyTorch · ONNX Runtime · C++ · GPU infrastructure · MLOps"),
-    ("agents", "Claude Code · Codex · MCP · hooks, skills and multi-session tooling"),
-]
-
 
 def stack(mobile):
     w = WM if mobile else W
@@ -598,17 +616,6 @@ def stack(mobile):
 # --------------------------------------------------------------------------
 # as-featured.md: what others say (site-data.js testimonials)
 # --------------------------------------------------------------------------
-
-QUOTES = [
-    ("“I had the pleasure of working with Anastasia and can confidently say she is an exceptional AI "
-     "specialist with a rare combination of technical depth, versatility, and strong ownership. … Overall, "
-     "she is someone who doesn't just understand AI, but knows how to apply it in a way that brings real "
-     "value, while also supporting and elevating the people around her.”",
-     "Nikita Blinkov", "Head of People & Org Dev @ Glam AI · worked together at Glam.ai"),
-    ("“Both highly professional and innovative, each project has felt more like a genuine collaboration.”",
-     "Paul Miller", "Senior Luxury High Jewellery & Timepiece Retoucher · client"),
-]
-
 
 def as_featured(mobile):
     w = WM if mobile else W
@@ -693,20 +700,18 @@ def taskbar(mobile):
 
 # --------------------------------------------------------------------------
 
-PRODUCTION = [  # site-data.js, projectGroups "production work"
-    ("glam", "glam.ai", "ML engineering & team lead (ex-) · 4M+ users",
-     "Identity-preserving photoshoot, multi-angle, trend looks, fix-everything. "
-     "Five chained Qwen pipelines in production.", "#ffd0a0", WIN_BLUE),
-    ("mashinki", "mashinki", "Dealer photo pipeline · architecture + ML",
-     "Automated exterior and interior retouch for car dealerships: segmentation, glass relight, "
-     "plate replacement, background replacement. Try it in the browser.", "#c0d8f0", WIN_GREEN),
-    ("happyin-ai", "happyin.ai", "Own R&D studio · founder",
-     "C++ Photoshop plugin + on-device retouching models. Custom-trained networks, "
-     "novel hi-res tiling architectures.", "#f0c0d0", WIN_PURPLE),
-    ("ois-gold", "ois.gold", "Jewellery retouching SaaS · sole tech lead",
-     "End-to-end SaaS for jewellery image processing. CV pipeline for 6K-10K pixel images, "
-     "1,500+ active users.", "#e0d090", WIN_RUST),
-]
+# The site's copy is data, not code: happyin-copy.json (sources named inside).
+with open(os.path.join(HERE, "happyin-copy.json"), encoding="utf-8") as _fh:
+    COPY = json.load(_fh)
+
+# swatch (the site's projects/ list) and window accent, in the order of COPY["production"]
+CARD_COLOURS = [("#ffd0a0", WIN_BLUE), ("#c0d8f0", WIN_GREEN), ("#f0c0d0", WIN_PURPLE), ("#e0d090", WIN_RUST)]
+PRODUCTION = [(p["slug"], p["name"], p["kicker"], p["blurb"], *colours)
+              for p, colours in zip(COPY["production"], CARD_COLOURS, strict=True)]
+OSS = [tuple(x) for x in COPY["open_source"]]
+LOG = COPY["production_log"]
+STACK = [tuple(x) for x in COPY["stack"]]
+QUOTES = [tuple(x) for x in COPY["quotes"]]
 
 BUTTONS = [("happyin.work →", True), ("happyin.space", False), ("linkedin", False),
            ("telegram", False), ("habr", False)]
@@ -748,13 +753,12 @@ def main():
     for text_, primary in BUTTONS:
         write(f"button-{re.sub(r'[^a-z0-9]+', '-', text_.lower()).strip('-')}.svg", button(text_, primary))
 
-    # equal-height windows: measure every card, then draw all at the tallest
-    tallest = max(project_card(p, i % 2)[1] for i, p in enumerate(PRODUCTION))
-    for i, p in enumerate(PRODUCTION):
-        write(f"project-{p[0]}.svg", project_card(p, i % 2, body_h=tallest)[0])
-
     for mobile, prefix in [(False, ""), (True, "mobile/")]:
         write(f"{prefix}header.svg", header(mobile))
+        # equal-height windows: measure every card, then draw all at the tallest
+        tallest = max(project_card(p, i % 2, mobile)[1] for i, p in enumerate(PRODUCTION))
+        for i, p in enumerate(PRODUCTION):
+            write(f"{prefix}project-{p[0]}.svg", project_card(p, i % 2, mobile, body_h=tallest)[0])
         write(f"{prefix}open-source.svg", open_source(showcase, mobile))
         write(f"{prefix}production-log.svg", production_log(stars, mobile))
         write(f"{prefix}stack.svg", stack(mobile))
