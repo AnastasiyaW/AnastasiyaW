@@ -1,0 +1,35 @@
+{
+ "_source": "Cloudflare zone analytics for happyin.space (httpRequests1dGroups.pageViews: people and AI agents); article counts from AnastasiyaW/knowledge-space docs/",
+ "as_of": "2026-09-30",
+ "since": "2026-04-03",
+ "page_views_total": 241741,
+ "page_views_30d": 67188,
+ "months": [
+  [
+   "2026-04",
+   26322
+  ],
+  [
+   "2026-05",
+   30691
+  ],
+  [
+   "2026-06",
+   34353
+  ],
+  [
+   "2026-07",
+   41315
+  ],
+  [
+   "2026-08",
+   41872
+  ],
+  [
+   "2026-09",
+   67188
+  ]
+ ],
+ "articles": 1321,
+ "domains": 29
+}

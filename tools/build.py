@@ -3,9 +3,10 @@
 Everything here quotes happyin.work. Colours and type come from the site's
 pages/_assets/UI-KIT-REFERENCE.md, shapes from page-shell.jsx: the pixel
 starfield (CosmosBG), the striped Mac title bar, the Win 3.1 windows with a
-3px accent strip and a hard black shadow, the `$` prompts, the menu bar and
-the taskbar. Copy is the site's own (pages-data.jsx, site-data.js); the
-repository numbers are read from the GitHub API on every build.
+3px accent strip and a hard black shadow, the `$` prompts and the menu bar.
+Copy is the site's own (tools/happyin-copy.json); the knowledge-base numbers
+come from the snapshot tools/kb_stats.py writes, and the model count from the
+Hugging Face API on every build.
 
 Type ships as outlines: GitHub serves README images through camo as <img>,
 and an <img> SVG cannot load webfonts. Desktop artwork is drawn 900px wide,
@@ -20,8 +21,8 @@ cannot show the phone set.)
     uv run --no-project --with fonttools --with uharfbuzz python tools/build.py
 """
 
+import datetime as dt
 import json
-import math
 import os
 import random
 import re
@@ -34,12 +35,11 @@ sys.path.insert(0, HERE)
 from typeset import glyph_defs, typeset, width  # noqa: E402
 
 OUT = os.path.join(os.path.dirname(HERE), "assets")
-USER = "AnastasiyaW"
 
 # UI-KIT-REFERENCE.md colour tokens, plus the literals page-shell.jsx uses
-VOID, PANEL, RULE, DASH = "#0a0907", "#14130f", "#2a2720", "#3a362d"
+VOID, PANEL, RULE = "#0a0907", "#14130f", "#2a2720"
 IVORY, WARM, MUTED, CAPTION = "#e8e4d4", "#c4baa3", "#a99c82", "#6b6558"
-PHOSPHOR, GRASS = "#ff5b1f", "#6b9b5a"
+PHOSPHOR = "#ff5b1f"
 WIN_BLUE, WIN_GREEN, WIN_PURPLE, WIN_RUST = "#0000aa", "#008000", "#800080", "#aa5500"
 TITLE_BG, HILITE, LOG_GREEN = "#e8e8e8", "#ffff00", "#008800"
 
@@ -112,7 +112,12 @@ def unbreakable_list(s):
     starting a line with "·", reads as broken; so each item holds together, the
     line may only break after a separator, and wrap() drops a separator that
     lands at the end of a line."""
-    return (NBSP + "· ").join(item.replace(" ", NBSP) for item in s.split(SEP)) if SEP in s else s
+    def glue(item):  # only the spaces inside an item; its edges still break
+        core = item.strip(" ")
+        head, tail = item[:len(item) - len(item.lstrip(" "))], item[len(item.rstrip(" ")):]
+        return head + core.replace(" ", NBSP) + tail
+
+    return (NBSP + "· ").join(glue(item) for item in s.split(SEP)) if SEP in s else s
 
 
 def wrap(parts, size, maxw):
@@ -192,15 +197,6 @@ def sparkle(cx, cy, r, fill):
          f"Q{n(cx + k)} {n(cy + k)} {n(cx)} {n(cy + r)}Q{n(cx - k)} {n(cy + k)} {n(cx - r)} {n(cy)}"
          f"Q{n(cx - k)} {n(cy - k)} {n(cx)} {n(cy - r)}Z")
     return f'<path d="{d}" fill="{fill}"/>'
-
-
-def star(cx, cy, r, fill):
-    pts = []
-    for i in range(10):
-        a = -math.pi / 2 + i * math.pi / 5
-        rr = r if i % 2 == 0 else r * 0.45
-        pts.append(f"{n(cx + rr * math.cos(a))},{n(cy + rr * math.sin(a))}")
-    return f'<polygon points="{" ".join(pts)}" fill="{fill}"/>'
 
 
 # --------------------------------------------------------------------------
@@ -367,15 +363,16 @@ def terminal_body(svg, x, y, w, mobile):
     who, y = paragraph([("anastasiia butova — comfyui specialist", style("mono", IVORY))],
                        size, ix + 14, y, iw - 14, lead, max_lines=None if mobile else 1)
     out.append(who)
-    out.append(prompt("cat /etc/timezone", size, ix, y))
+    out.append(prompt("uptime", size, ix, y))
     y += lead
-    out.append(runs([("Europe/Belgrade — ", style("mono", IVORY)), ("Belgrade, Serbia", style("mono", MUTED))],
-                    size, ix + 14, y)[0])
-    y += 22 + head * 0.78
+    up, y = paragraph([("20+ years in graphics · 4+ years of neural networks for image processing",
+                        style("mono", IVORY))], size, ix + 14, y, iw - 14, lead)
+    out.append(up)
+    y += 22 + head * 0.78 - lead
     out.append(runs([(">_", style("mono-bold", PHOSPHOR)), (" Anastasiia Butova", style("mono-bold", IVORY))],
                     head, ix, y)[0])
     y += 24
-    sub, y = paragraph([("image-processing pipelines · diffusion models · computer vision", style("mono", MUTED))],
+    sub, y = paragraph([("image-processing pipelines · diffusion models · Belgrade, Serbia", style("mono", MUTED))],
                        12, ix, y, iw, 18, max_lines=None if mobile else 1)
     out.append(sub)
     y += 12
@@ -434,8 +431,8 @@ def header(mobile=False):
     readme_inner, readme_end = readme_body(win_x, win_y + BODY_TOP, win_w, mobile)
     H = int(max(term_end, readme_end) + (18 if mobile else 30))
 
-    svg = Svg(w, H, "Anastasiia Butova — ComfyUI specialist; image-processing pipelines, diffusion models, "
-                    "computer vision. Belgrade, Serbia. happyin.work")
+    svg = Svg(w, H, "Anastasiia Butova — ComfyUI specialist; 20+ years in graphics, 4+ years of neural networks "
+                    "for image processing; image-processing pipelines, diffusion models. Belgrade, Serbia. happyin.work")
     svg.defs = probe.defs
     svg.add(rect(0, 0, w, H, VOID), cosmos(svg, w, H, seed=1440, count=45 if mobile else 90), menu, cr)
     before, after = window(svg, pad, y0, term_w, term_end - y0, "happyinhappy@happyin.work — github",
@@ -443,18 +440,6 @@ def header(mobile=False):
     svg.add(before, term_inner, after)
     before, after = window(svg, win_x, win_y, win_w, readme_end - win_y, "README.md", WIN_BLUE)
     svg.add(before, readme_inner, after)
-    return svg.render()
-
-
-# --------------------------------------------------------------------------
-# Section labels: the site's `$ command` prompt as a small chip
-# --------------------------------------------------------------------------
-
-def label(cmd):
-    size, pad, h = 12, 12, 30
-    w = pad * 2 + width("mono", "$ " + cmd, size)
-    svg = Svg(w, h, "$ " + cmd)
-    svg.add(rect(0.5, 0.5, w - 1, h - 1, VOID, f' stroke="{RULE}"'), prompt(cmd, size, pad, 19.5))
     return svg.render()
 
 
@@ -510,192 +495,119 @@ def project_card(project, side, mobile, body_h=None):
 
 
 # --------------------------------------------------------------------------
-# Open source: the site's open-source group as a terminal listing, live numbers
+# happyin.space: the knowledge base and its reach, month by month
 # --------------------------------------------------------------------------
 
-def open_source(repos, mobile):
-    w = WM if mobile else W
-    pad = 16 if mobile else 22
-    right = w - 4 - pad
-    out, y = [], BODY_TOP + 6
-    for i, (repo, (name, desc)) in enumerate(zip(repos, OSS)):
-        top = y
-        if i:
-            out.append(hline(pad, right, top, RULE, "4 3"))
-        forks = repo["forks_count"]
-        meta = f"{(repo['language'] or 'markdown').upper()} · {forks} FORK{'' if forks == 1 else 'S'}"
-        stars = str(repo["stargazers_count"])
-        if mobile:
-            base = top + 24
-            out.append(text("mono-bold", stars, 13, pad, base, PHOSPHOR))
-            sx = pad + width("mono-bold", stars, 13) + 10
-            out.append(star(sx, base - 4.5, 6, PHOSPHOR))
-            out.append(text("mono-bold", fit("mono-bold", name, 13, right - sx - 12), 13, sx + 12, base, IVORY))
-            d, y = paragraph([(desc, style("mono", WARM))], 11.5, pad, base + 20, right - pad, 17)
-            out.append(d)
-            out.append(text("mono", meta, 9.5, pad, y + 1, MUTED, 0.12))
-            y += 14
-        else:
-            base = top + 24
-            col_star, col_name = pad + 40, pad + 66
-            out.append(text("mono-bold", stars, 13, col_star, base, PHOSPHOR, anchor="end"))
-            out.append(star(col_star + 10, base - 4.5, 6, PHOSPHOR))
-            out.append(text("mono-bold", name, 13, col_name, base, IVORY))
-            out.append(text("mono", meta, 9.5, right, base, MUTED, 0.12, "end"))
-            out.append(text("mono", fit("mono", desc, 11, right - col_name), 11, col_name, base + 19, WARM))
-            y = top + 52
-    h = y + (4 if mobile else 6)
-    title = "~/open-source" if mobile else "happyinhappy@happyin.work — ~/open-source"
-    return panel(w, h, title, PHOSPHOR, True, out, "Open-source repositories: " + "; ".join(
-        f"{name} — {desc}" for name, desc in OSS))
+MONTHS = "JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC".split()
+KB_SWATCH = "#f0e3a0"  # the site's projects/ list colour for happyin.space
 
 
-# --------------------------------------------------------------------------
-# production.log: the home page's shipped / open-source window, as numbers
-# --------------------------------------------------------------------------
+def compact(v):
+    """241741 -> '241K'. Rounded down, so a figure never claims more than was counted."""
+    return f"{v // 1000}K" if v >= 1000 else str(v)
 
-def production_log(stars, mobile):
+
+def bars(x, y, w, h, months, as_of):
+    """Monthly page views as the site would draw them: flat bars, 1px black edge."""
+    out, months = [], months[-12:]
+    top_label, bottom_label = 16, 18
+    base = y + h - bottom_label
+    tallest = max(v for _, v in months)
+    slot = w / len(months)
+    bar_w = min(slot * 0.56, 44)
+    for i, (ym, views) in enumerate(months):
+        year, month = int(ym[:4]), int(ym[5:])
+        days = (dt.date(year + month // 12, month % 12 + 1, 1) - dt.timedelta(days=1)).day
+        partial = (year, month) == (as_of.year, as_of.month) and as_of.day < days
+        bh = (h - top_label - bottom_label - 4) * views / tallest
+        cx = x + slot * i + slot / 2
+        out.append(rect(cx - bar_w / 2, base - bh, bar_w, bh, LOG_GREEN,
+                        ' stroke="#000"' + (' fill-opacity="0.45"' if partial else "")))
+        out.append(text("mono", compact(views), 9.5, cx, base - bh - 5, "#000", anchor="middle"))
+        out.append(text("mono", MONTHS[month - 1], 9, cx, base + 14, "#555", 0.08, "middle"))
+    out.append(rect(x, base, w, 1, "#000"))
+    return "".join(out)
+
+
+def knowledge_base(stats, kb, mobile):
     w = WM if mobile else W
     px = 14 if mobile else 16
-    groups = [(title, [(v.replace("{stars}", str(stars)), c) for v, c in cells]) for title, cells in LOG]
-    value_size = 22 if mobile else 27
-    per_row = 3 if mobile else 6
-    cell_w = (w - 4 - 2 * px) / per_row
-    out, top, bottom = [], BODY_TOP + 16, 0
+    inner = w - 4 - 2 * px
+    col_w = inner if mobile else 420
+    out, y = [], BODY_TOP + 14 + 24
+    out.append(rect(px, y - 15, 10, 9, KB_SWATCH, ' stroke="#000"'))
+    out.append(text("serif-italic", "happyin.space", 24 if mobile else 30, px + 17, y, "#000"))
+    y += 21
+    articles = stats["articles"] // 100 * 100
+    kicker = f"knowledge base · {articles:,}+ articles · {stats['domains']} domains"
+    k, y = paragraph([(kicker.upper(), style("mono", "#555", tracking=0.08))], 10.5, px, y, col_w, 15.5)
+    out.append(k)
+    y += 7
+    b, y = paragraph([(kb["blurb"], style("times", "#111"))], 15.5, px, y, col_w, 21)
+    out.append(b)
 
-    def cell(cx, cy, value, caption, starred):
-        out.append(text("mono-bold", fit("mono-bold", value, value_size, cell_w - 22), value_size, cx, cy,
-                        LOG_GREEN))
-        if starred:
-            out.append(star(cx + width("mono-bold", value, value_size) + value_size * 0.45,
-                            cy - value_size * 0.36, value_size * 0.33, LOG_GREEN))
-        cap, end = paragraph([(caption.upper(), style("mono", "#555", tracking=0.08))], 9, cx, cy + 20,
-                             cell_w - 10 if mobile else cell_w - 20, 13.5, max_lines=2)
+    since = dt.date.fromisoformat(stats["since"])
+    cells = [(compact(stats["page_views_total"]), f"page views since {MONTHS[since.month - 1].title()} {since.year}"),
+             (compact(stats["page_views_30d"]), "page views in the last 30 days")]
+    vy, ends = y + 32, []
+    for i, (value, caption) in enumerate(cells):
+        cx = px + i * col_w / 2
+        out.append(text("mono-bold", value, 32 if not mobile else 28, cx, vy, LOG_GREEN))
+        cap, end = paragraph([(caption.upper(), style("mono", "#555", tracking=0.08))], 9, cx, vy + 19,
+                             col_w / 2 - 16, 13.5, max_lines=2)
         out.append(cap)
-        return end
+        ends.append(end)
+    left_end = max(ends) - 13.5
 
-    for g, (title, cells) in enumerate(groups):
-        if mobile:
-            gx, gy = px, top
-        else:
-            gx, gy = px + g * 3 * cell_w, top
-        out.append(runs([("▸ ", style("mono", "#000")), (title, style("mono-bold", "#000"))], 11, gx, gy + 12)[0])
-        ends = [cell(gx + i * cell_w, gy + 12 + value_size + 10, v, c, c.startswith("GitHub stars"))
-                for i, (v, c) in enumerate(cells)]
-        bottom = max(ends)
-        if mobile:
-            top = bottom + 8
-            if g == 0:
-                out.append(hline(px, w - 4 - px, bottom - 2, "#000", "1 0"))
-    if not mobile:
-        out.append(rect(px + 3 * cell_w - 12, top + 2, 1, bottom - top - 12, "#000"))
-    h = bottom + (2 if mobile else 6)
-    return panel(w, h, "production.log", WIN_PURPLE, False, out, "production.log — " + "; ".join(
-        f"{v} {c}" for _, cells in groups for v, c in cells))
+    note = "page views per month · Cloudflare · people and AI agents"
+    if mobile:
+        chart_y, chart_h = left_end + 22, 118
+        out.append(bars(px, chart_y, inner, chart_h, stats["months"], dt.date.fromisoformat(stats["as_of"])))
+        n_, bottom = paragraph([(note.upper(), style("mono", "#555", tracking=0.08))], 9, px, chart_y + chart_h + 16,
+                               inner, 13.5)
+        out.append(n_)
+        bottom -= 13.5
+    else:
+        cx0 = px + col_w + 44
+        chart_y = BODY_TOP + 18
+        chart_h = max(left_end - 22 - chart_y, 130)
+        out.append(rect(cx0 - 22, BODY_TOP + 16, 1, chart_h + 22, "#000"))
+        out.append(bars(cx0, chart_y, w - 4 - px - cx0, chart_h, stats["months"],
+                        dt.date.fromisoformat(stats["as_of"])))
+        out.append(text("mono", note.upper(), 9, cx0, chart_y + chart_h + 18, "#555", 0.08))
+        bottom = max(left_end, chart_y + chart_h + 18)
+
+    y = bottom + 14
+    out.append(hline(px, w - 4 - px, y, "#ccc", "1 2"))
+    y += 16
+    out.append(runs([("▸ ", style("mono", "#000")), ("happyin.space", style("mono", WIN_BLUE, underline=True))],
+                    10.5, px, y)[0])
+    out.append(text("mono", "[enter →]", 10.5, w - 4 - px, y, WIN_GREEN, anchor="end"))
+    h = y + 12
+    label = (f"happyin.space — knowledge base, {articles:,}+ articles in {stats['domains']} domains. "
+             f"{stats['page_views_total']:,} page views since {stats['since']} and {stats['page_views_30d']:,} "
+             f"in the 30 days to {stats['as_of']} (Cloudflare; people and AI agents).")
+    return panel(w, h, "happyin.space", WIN_GREEN, False, out, label)
 
 
 # --------------------------------------------------------------------------
-# stack.md: the site's `# tag.` lines (THash), from the Person node's knowsAbout
+# stack.md: the site's `# tag.` lines (THash), closing on the open models
 # --------------------------------------------------------------------------
 
-def stack(mobile):
+def stack(models, mobile):
     w = WM if mobile else W
     pad = 16 if mobile else 22
     size, lead = (12, 19) if mobile else (12.5, 21)
+    lines = STACK + [("huggingface", f"{len(models)} open models on huggingface.co/{HF['user']} · {HF['summary']}")]
     out, y = [], BODY_TOP + pad + 6
-    for tag, items in STACK:
+    for tag, items in lines:
         body, y = paragraph([(f"# {tag}.", style("mono", CAPTION)), (" " + items, style("mono", WARM))],
                             size, pad, y, w - 4 - 2 * pad, lead)
         out.append(body)
         y += 4 if mobile else 3
     h = y - lead + pad - 2
     title = "stack.md" if mobile else "happyinhappy@happyin.work — stack.md"
-    return panel(w, h, title, PHOSPHOR, True, out, "Stack — " + "; ".join(f"{t}: {v}" for t, v in STACK))
-
-
-# --------------------------------------------------------------------------
-# as-featured.md: what others say (site-data.js testimonials)
-# --------------------------------------------------------------------------
-
-def as_featured(mobile):
-    w = WM if mobile else W
-    px = 14 if mobile else 16
-    q = style("times-italic", "#222")
-    qsize, qlead = (14, 19.5) if mobile else (15, 21)
-    out, y = [], BODY_TOP + 14 + 22
-    out.append(text("serif-italic", "What others say", 22 if mobile else 26, px, y, "#000"))
-    top = y + 28
-
-    def quote(x, y, maxw, body, who, role):
-        b, y = paragraph([(body, q)], qsize, x, y, maxw, qlead)
-        out.append(b)
-        y += 2
-        out.append(text("mono-bold", who, 10.5, x, y, "#000"))
-        r, y = paragraph([(role, style("mono", "#555"))], 9.5, x, y + 15, maxw, 13.5)
-        out.append(r)
-        return y - 13.5
-
-    if mobile:
-        iw = w - 4 - 2 * px
-        y = quote(px, top, iw, *QUOTES[0])
-        y += 16
-        out.append(rect(px, y - 4, iw, 1, "#000"))
-        y = quote(px, y + 18, iw, *QUOTES[1])
-        h = y + 16
-    else:
-        left_w = 540
-        rx = px + left_w + 28
-        ly = quote(px, top, left_w, *QUOTES[0])
-        ry = quote(rx, top, w - 4 - px - rx, *QUOTES[1])
-        out.append(rect(rx - 14, top - 14, 1, max(ly, ry) - top + 14, "#000"))
-        h = max(ly, ry) + 18
-    return panel(w, h, "as-featured.md", WIN_RUST, False, out,
-                 "What others say — " + "; ".join(f"{who}, {role}: {body}" for body, who, role in QUOTES))
-
-
-# --------------------------------------------------------------------------
-# Contacts: TBtn buttons, one image per link so each one clicks through
-# --------------------------------------------------------------------------
-
-def button(label, primary=False):
-    size, px, h = 11.5, 18, 36
-    face = "mono-bold" if primary else "mono"
-    w = width(face, label, size, 0.06) + 2 * px
-    svg = Svg(w, h, label)
-    if primary:
-        svg.add(rect(0, 0, w, h, PHOSPHOR), text(face, label, size, px, 23, VOID, 0.06))
-    else:
-        svg.add(rect(0.5, 0.5, w - 1, h - 1, VOID, f' stroke="{DASH}"'), text(face, label, size, px, 23, IVORY, 0.06))
-    return svg.render()
-
-
-# --------------------------------------------------------------------------
-# Footer: the site's taskbar
-# --------------------------------------------------------------------------
-
-def taskbar(mobile):
-    w, h, size = (WM if mobile else W), 34, 11
-    svg = Svg(w, h, "happyin.work taskbar — agents.txt")
-    out = [rect(0, 0, w, h, PANEL), rect(0, 0, w, 1, RULE), text("mono", "◆", size, 16, 21.5, PHOSPHOR)]
-    x = 34
-    tabs = ["github", "agents.txt"] if mobile else [
-        "github", "README.md", "projects/", "open-source/", "production.log", "agents.txt"]
-    for i, tab in enumerate(tabs):
-        tw = width("mono", tab, size) + 20
-        if i == 0:
-            out.append(rect(x, 7, tw, 20, RULE))
-            fill = IVORY
-        else:
-            out.append(rect(x + 0.5, 7.5, tw - 1, 19, "none", f' stroke="{RULE}"'))
-            fill = GRASS if tab == "agents.txt" else MUTED
-        out.append(text("mono", tab, size, x + 10, 21, fill))
-        x += tw + 8
-    out.append(text("mono", "uptime: since 2023", size, w - 34, 21, MUTED, anchor="end"))
-    out.append(rect(w - 25, 10, 9, 14, PHOSPHOR)[:-2] +
-               '><animate attributeName="opacity" values="1;0" dur="1.06s" calcMode="discrete" '
-               'repeatCount="indefinite"/></rect>')
-    svg.add(*out)
-    return svg.render()
+    return panel(w, h, title, PHOSPHOR, True, out, "Stack — " + "; ".join(f"{t}: {v}" for t, v in lines))
 
 
 # --------------------------------------------------------------------------
@@ -708,27 +620,8 @@ with open(os.path.join(HERE, "happyin-copy.json"), encoding="utf-8") as _fh:
 CARD_COLOURS = [("#ffd0a0", WIN_BLUE), ("#c0d8f0", WIN_GREEN), ("#f0c0d0", WIN_PURPLE), ("#e0d090", WIN_RUST)]
 PRODUCTION = [(p["slug"], p["name"], p["kicker"], p["blurb"], *colours)
               for p, colours in zip(COPY["production"], CARD_COLOURS, strict=True)]
-OSS = [tuple(x) for x in COPY["open_source"]]
-LOG = COPY["production_log"]
 STACK = [tuple(x) for x in COPY["stack"]]
-QUOTES = [tuple(x) for x in COPY["quotes"]]
-
-BUTTONS = [("happyin.work →", True), ("happyin.space", False), ("linkedin", False),
-           ("telegram", False), ("habr", False)]
-
-LABELS = [("bio", "cat bio.md"), ("production", "ls ~/projects/production"),
-          ("open-source", "ls ~/projects/open-source"), ("log", "tail production.log"),
-          ("stack", "cat stack.md"), ("featured", "cat as-featured.md"), ("contacts", "cat contacts.txt")]
-
-
-def github(path):
-    req = urllib.request.Request(f"https://api.github.com/{path}",
-                                 headers={"Accept": "application/vnd.github+json", "User-Agent": f"{USER}-profile"})
-    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
-    if token:
-        req.add_header("Authorization", f"Bearer {token}")
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.load(r)
+KB, HF = COPY["knowledge_base"], COPY["huggingface"]
 
 
 def write(name, content):
@@ -740,18 +633,15 @@ def write(name, content):
 
 
 def main():
-    repos = [r for r in github(f"users/{USER}/repos?per_page=100&type=owner") if not r["private"] and not r["fork"]]
-    by_name = {r["name"]: r for r in repos}
-    missing = [name for name, _ in OSS if name not in by_name]
-    if missing:
-        raise SystemExit(f"not public on {USER}: {', '.join(missing)}")
-    stars = sum(r["stargazers_count"] for r in repos)
-    showcase = [by_name[name] for name, _ in OSS]
-
-    for slug, cmd in LABELS:
-        write(f"label-{slug}.svg", label(cmd))
-    for text_, primary in BUTTONS:
-        write(f"button-{re.sub(r'[^a-z0-9]+', '-', text_.lower()).strip('-')}.svg", button(text_, primary))
+    # tools/kb_stats.py refreshes this snapshot; the build itself needs no Cloudflare access
+    with open(os.path.join(HERE, "kb-stats.json"), encoding="utf-8") as fh:
+        kb_stats = json.load(fh)
+    req = urllib.request.Request(f"https://huggingface.co/api/models?author={HF['user']}&limit=100",
+                                 headers={"User-Agent": "AnastasiyaW-profile"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        models = [m for m in json.load(r) if not m.get("private")]
+    if not models:
+        raise SystemExit(f"no public models found for huggingface.co/{HF['user']}")
 
     for mobile, prefix in [(False, ""), (True, "mobile/")]:
         write(f"{prefix}header.svg", header(mobile))
@@ -759,12 +649,9 @@ def main():
         tallest = max(project_card(p, i % 2, mobile)[1] for i, p in enumerate(PRODUCTION))
         for i, p in enumerate(PRODUCTION):
             write(f"{prefix}project-{p[0]}.svg", project_card(p, i % 2, mobile, body_h=tallest)[0])
-        write(f"{prefix}open-source.svg", open_source(showcase, mobile))
-        write(f"{prefix}production-log.svg", production_log(stars, mobile))
-        write(f"{prefix}stack.svg", stack(mobile))
-        write(f"{prefix}as-featured.svg", as_featured(mobile))
-        write(f"{prefix}taskbar.svg", taskbar(mobile))
-    print(f"stars: {stars} across {len(repos)} public repositories")
+        write(f"{prefix}knowledge-base.svg", knowledge_base(kb_stats, KB, mobile))
+        write(f"{prefix}stack.svg", stack(models, mobile))
+    print(f"knowledge base as of {kb_stats['as_of']}; {len(models)} public models on Hugging Face")
 
 
 if __name__ == "__main__":

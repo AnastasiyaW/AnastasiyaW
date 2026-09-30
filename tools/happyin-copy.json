@@ -1,5 +1,5 @@
 {
-  "_source": "happyin.work: pages/_assets/site-data.js (projectGroups, testimonials) and the Person node's knowsAbout; kept out of build.py so the code carries no project names",
+  "_source": "happyin.work: pages/_assets/site-data.js (projectGroups) and the Person node's knowsAbout; the knowledge-base blurb joins the site's happyin.space card with the knowledge-space repo description; kept out of build.py so the code carries no project names",
   "production": [
     {"slug": "glam", "name": "glam.ai", "kicker": "ML engineering & team lead (ex-) · 4M+ users",
      "blurb": "Identity-preserving photoshoot, multi-angle, trend looks, fix-everything. Five chained Qwen pipelines in production."},
@@ -10,31 +10,18 @@
     {"slug": "ois-gold", "name": "ois.gold", "kicker": "Jewellery retouching SaaS · sole tech lead",
      "blurb": "End-to-end SaaS for jewellery image processing. CV pipeline for 6K-10K pixel images, 1,500+ active users."}
   ],
-  "open_source": [
-    ["codex-claude-code-config", "Drop-in rulebook for Claude Code and Codex agents: 30 principles, 40+ hooks, 58 skills."],
-    ["knowledge-space", "happyin.space: 1,287+ reference articles across 28 domains, written for AI agents."],
-    ["mclaude", "Multi-session infrastructure for Claude Code: locks, handoffs, memory, messaging."]
-  ],
-  "production_log": [
-    ["shipped", [["4M+", "Glam.ai users of my AI features"],
-                 ["80×H200", "GPU cluster I ran"],
-                 ["1,500+", "active users of ois.gold"]]],
-    ["open-source", [["{stars}", "GitHub stars on public repos"],
-                     ["1,287+", "reference articles on happyin.space"],
-                     ["32K+", "readers reached on Habr"]]]
-  ],
+  "knowledge_base": {
+    "blurb": "A curated reference library, agent-ready and human-legible: dense articles with wiki-links, gotchas and runnable code, built for AI agents instead of vector embeddings."
+  },
   "stack": [
-    ["pipelines", "ComfyUI graphs · custom nodes · ComfyUI API · Diffusers · headless GPU queues and APIs"],
-    ["models", "FLUX.2 · Qwen Image Edit · Stable Diffusion · LoRA fine-tuning · SAM3 · YOLO · NAFNet"],
-    ["vision", "segmentation · restoration and denoising · super-resolution · colour correction · 3D LUTs"],
-    ["quality", "image quality assessment · measurable acceptance checks · fixed-seed comparison sheets"],
-    ["engineering", "Python · PyTorch · ONNX Runtime · C++ · GPU infrastructure · MLOps"],
-    ["agents", "Claude Code · Codex · MCP · hooks, skills and multi-session tooling"]
+    ["pipelines", "ComfyUI graphs · custom nodes · Diffusers · GPU queues and APIs"],
+    ["models", "FLUX.2 · Qwen Image Edit · Stable Diffusion · LoRA training · SAM3 · YOLO · NAFNet"],
+    ["vision", "segmentation · restoration · super-resolution · colour · quality assessment"],
+    ["code", "Python · PyTorch · ONNX Runtime · C++"],
+    ["agents", "Claude Code · Codex · MCP"]
   ],
-  "quotes": [
-    ["“I had the pleasure of working with Anastasia and can confidently say she is an exceptional AI specialist with a rare combination of technical depth, versatility, and strong ownership. … Overall, she is someone who doesn't just understand AI, but knows how to apply it in a way that brings real value, while also supporting and elevating the people around her.”",
-     "Nikita Blinkov", "Head of People & Org Dev @ Glam AI · worked together at Glam.ai"],
-    ["“Both highly professional and innovative, each project has felt more like a genuine collaboration.”",
-     "Paul Miller", "Luxury High Jewellery & Timepiece Retoucher · client"]
-  ]
+  "huggingface": {
+    "user": "happyinhappy",
+    "summary": "NAFNet jewellery restore · DINOv3 car viewpoint and dimensions · FLUX.2 Klein LoRAs for faces, car backgrounds and geometry · ONNX retouch (dodge & burn, volume)"
+  }
 }
