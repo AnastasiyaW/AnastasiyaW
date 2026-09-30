@@ -120,8 +120,12 @@ def unbreakable_list(s):
     return (NBSP + "· ").join(glue(item) for item in s.split(SEP)) if SEP in s else s
 
 
-def wrap(parts, size, maxw):
-    """Greedy word wrap over styled runs; returns a list of run lists."""
+def wrap(parts, size, maxw, rest_maxw=None):
+    """Greedy word wrap over styled runs; returns a list of run lists.
+
+    `rest_maxw` narrows every line after the first (a hanging indent)."""
+    rest_maxw = maxw if rest_maxw is None else rest_maxw
+    narrowest = min(maxw, rest_maxw)
     words, cur = [], []
     for s, st in parts:
         for piece in re.split(r"( )", unbreakable_list(s)):
@@ -147,7 +151,7 @@ def wrap(parts, size, maxw):
     # a list item wider than the whole line breaks at its own spaces after all
     split = []
     for toks, space in words:
-        if len(toks) == 1 and NBSP in toks[0][0] and measure(toks) > maxw:
+        if len(toks) == 1 and NBSP in toks[0][0] and measure(toks) > narrowest:
             s, st = toks[0]
             parts_ = s.split(NBSP)
             if parts_[-1] == "·":
@@ -159,9 +163,10 @@ def wrap(parts, size, maxw):
     lines, line, lw = [], [], 0.0
     for toks, space in split:
         ww = measure(toks)
-        if ww > maxw:
-            raise SystemExit(f"{''.join(s for s, _ in toks)!r} is {ww:.0f}px and cannot wrap into {maxw:.0f}px")
-        if line and lw + ww > maxw:
+        limit = rest_maxw if lines else maxw
+        if ww > narrowest:
+            raise SystemExit(f"{''.join(s for s, _ in toks)!r} is {ww:.0f}px and cannot wrap into {narrowest:.0f}px")
+        if line and lw + ww > limit:
             close(line)
             line, lw = [], 0.0
         line.extend(toks)
@@ -174,14 +179,16 @@ def wrap(parts, size, maxw):
     return lines
 
 
-def paragraph(parts, size, x, y, maxw, lead, max_lines=None):
-    """Wrapped styled runs, first baseline at y; returns (markup, next_y)."""
-    lines = wrap(parts, size, maxw)
+def paragraph(parts, size, x, y, maxw, lead, max_lines=None, hang=0.0):
+    """Wrapped styled runs, first baseline at y; returns (markup, next_y).
+
+    `hang` indents every line after the first (a `# tag.` line's text column)."""
+    lines = wrap(parts, size, maxw, maxw - hang)
     if max_lines and len(lines) > max_lines:
         raise SystemExit(f"{''.join(s for s, _ in parts)!r} wraps to {len(lines)} lines, allowed {max_lines}")
     out = []
-    for line in lines:
-        out.append(runs(line, size, x, y)[0])
+    for i, line in enumerate(lines):
+        out.append(runs(line, size, x + (hang if i else 0), y)[0])
         y += lead
     return "".join(out), y
 
@@ -365,7 +372,7 @@ def terminal_body(svg, x, y, w, mobile):
     out.append(who)
     out.append(prompt("uptime", size, ix, y))
     y += lead
-    up, y = paragraph([("20+ years in graphics · 4+ years of neural networks for image processing",
+    up, y = paragraph([("20+ years in graphics · 4+ years of neural networks for images",
                         style("mono", IVORY))], size, ix + 14, y, iw - 14, lead)
     out.append(up)
     y += 22 + head * 0.78 - lead
@@ -398,10 +405,13 @@ def readme_body(x, y, w, mobile):
                        "stacks.", ink)], size, ix, y, iw, lead)
     out.append(p1)
     y += 6
-    p2, y = paragraph([("Production AI for 4M+ users · 80×H200 cluster · custom CNN/U-Net training · "
-                        "32K+ Habr reach.", ink)], size, ix, y, iw, lead)
-    out.append(p2)
+    # the site's production facts, one per line (RList) so they read the same at every width
     y += 2
+    for fact in ["production AI for 4M+ users", "80×H200 GPU cluster", "custom CNN/U-Net training",
+                 "32K+ Habr reach"]:
+        out.append(runs([("▸ ", style("mono", "#555")), (fact, style("mono", "#000"))], 11, ix, y)[0])
+        y += 17
+    y -= 6
     out.append(hline(ix, ix + iw, y, "#999", "3 3"))
     y += 17
     grey, blue = style("mono", "#555"), style("mono", WIN_BLUE)
@@ -429,6 +439,8 @@ def header(mobile=False):
         win_x, win_y = pad + term_w + 24, y0
         win_w = w - pad - win_x
     readme_inner, readme_end = readme_body(win_x, win_y + BODY_TOP, win_w, mobile)
+    if not mobile:  # side by side: both windows end on the same line, as on the site
+        term_end = readme_end = max(term_end, readme_end)
     H = int(max(term_end, readme_end) + (18 if mobile else 30))
 
     svg = Svg(w, H, "Anastasiia Butova — ComfyUI specialist; 20+ years in graphics, 4+ years of neural networks "
@@ -503,8 +515,11 @@ KB_SWATCH = "#f0e3a0"  # the site's projects/ list colour for happyin.space
 
 
 def compact(v):
-    """241741 -> '241K'. Rounded down, so a figure never claims more than was counted."""
-    return f"{v // 1000}K" if v >= 1000 else str(v)
+    """241741 -> '241K', 2239 -> '2.2K'. Rounded down, so a figure never claims more than was counted."""
+    v = int(v)
+    if v >= 10_000:
+        return f"{v // 1000}K"
+    return f"{v // 100 / 10:g}K" if v >= 1000 else str(v)
 
 
 def bars(x, y, w, h, months, as_of):
@@ -547,8 +562,9 @@ def knowledge_base(stats, kb, mobile):
     out.append(b)
 
     since = dt.date.fromisoformat(stats["since"])
+    # the daily average, not the 30-day sum: at a month's end that sum is the last bar's label again
     cells = [(compact(stats["page_views_total"]), f"page views since {MONTHS[since.month - 1].title()} {since.year}"),
-             (compact(stats["page_views_30d"]), "page views in the last 30 days")]
+             (compact(stats["page_views_30d"] / 30), "page views a day, last 30 days")]
     vy, ends = y + 32, []
     for i, (value, caption) in enumerate(cells):
         cx = px + i * col_w / 2
@@ -570,7 +586,7 @@ def knowledge_base(stats, kb, mobile):
     else:
         cx0 = px + col_w + 44
         chart_y = BODY_TOP + 18
-        chart_h = max(left_end - 22 - chart_y, 130)
+        chart_h = max(left_end - 18 - chart_y, 130)  # its caption shares the numbers' last caption line
         out.append(rect(cx0 - 22, BODY_TOP + 16, 1, chart_h + 22, "#000"))
         out.append(bars(cx0, chart_y, w - 4 - px - cx0, chart_h, stats["months"],
                         dt.date.fromisoformat(stats["as_of"])))
@@ -587,7 +603,7 @@ def knowledge_base(stats, kb, mobile):
     label = (f"happyin.space — knowledge base, {articles:,}+ articles in {stats['domains']} domains. "
              f"{stats['page_views_total']:,} page views since {stats['since']} and {stats['page_views_30d']:,} "
              f"in the 30 days to {stats['as_of']} (Cloudflare; people and AI agents).")
-    return panel(w, h, "happyin.space", WIN_GREEN, False, out, label)
+    return panel(w, h, "knowledge-base.md", WIN_GREEN, False, out, label)
 
 
 # --------------------------------------------------------------------------
@@ -602,7 +618,7 @@ def stack(models, mobile):
     out, y = [], BODY_TOP + pad + 6
     for tag, items in lines:
         body, y = paragraph([(f"# {tag}.", style("mono", CAPTION)), (" " + items, style("mono", WARM))],
-                            size, pad, y, w - 4 - 2 * pad, lead)
+                            size, pad, y, w - 4 - 2 * pad, lead, hang=width("mono", f"# {tag}. ", size))
         out.append(body)
         y += 4 if mobile else 3
     h = y - lead + pad - 2

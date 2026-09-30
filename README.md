@@ -2,7 +2,7 @@
      tools/build.py from happyin.work's design tokens, the copy in tools/happyin-copy.json and the
      happyin.space numbers in tools/kb-stats.json (refreshed by tools/kb_stats.py). Rebuild; do not hand-edit. -->
 
-<div align="center"><a href="https://happyin.work/"><picture><source media="(max-width: 600px)" srcset="assets/mobile/header.svg"><img src="assets/header.svg" width="100%" alt="happyin.work terminal: whoami — Anastasiia Butova, ComfyUI specialist; uptime — 20+ years in graphics, 4+ years of neural networks for image processing; image-processing pipelines, diffusion models, Belgrade, Serbia. README.md: Hi, I'm Anastasiia. Production AI for 4M+ users, 80×H200 cluster, custom CNN/U-Net training, 32K+ Habr reach."></picture></a></div>
+<p align="center"><a href="https://happyin.work/"><picture><source media="(max-width: 600px)" srcset="assets/mobile/header.svg"><img src="assets/header.svg" width="100%" alt="happyin.work terminal: whoami — Anastasiia Butova, ComfyUI specialist; uptime — 20+ years in graphics, 4+ years of neural networks for images; image-processing pipelines, diffusion models, Belgrade, Serbia. README.md: Hi, I'm Anastasiia. Production AI for 4M+ users, 80×H200 cluster, custom CNN/U-Net training, 32K+ Habr reach."></picture></a></p>
 
 <br>
 
@@ -10,7 +10,7 @@
 
 <br>
 
-<a href="https://happyin.space/"><picture><source media="(max-width: 600px)" srcset="assets/mobile/knowledge-base.svg"><img src="assets/knowledge-base.svg" width="100%" alt="happyin.space — knowledge base of 1,300+ articles in 29 domains, written for AI agents; 241K page views since April 2026 and 67K in the last 30 days (Cloudflare, people and AI agents)."></picture></a>
+<a href="https://happyin.space/"><picture><source media="(max-width: 600px)" srcset="assets/mobile/knowledge-base.svg"><img src="assets/knowledge-base.svg" width="100%" alt="happyin.space — knowledge base of 1,300+ articles in 29 domains, written for AI agents; 241K page views since April 2026, about 2.2K a day over the last 30 days (Cloudflare, people and AI agents)."></picture></a>
 
 <br>
 

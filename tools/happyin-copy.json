@@ -22,6 +22,6 @@
   ],
   "huggingface": {
     "user": "happyinhappy",
-    "summary": "NAFNet jewellery restore · DINOv3 car viewpoint and dimensions · FLUX.2 Klein LoRAs for faces, car backgrounds and geometry · ONNX retouch (dodge & burn, volume)"
+    "summary": "NAFNet jewellery restore · DINOv3 car viewpoint · FLUX.2 Klein LoRAs · ONNX retouch"
   }
 }
