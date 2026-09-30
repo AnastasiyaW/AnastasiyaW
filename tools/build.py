@@ -362,7 +362,7 @@ def menu_bar(w, mobile):
         out.append(text("mono", "MY PROJECTS", size, x, base, MUTED, tr))
         x += width("mono", "MY PROJECTS", size, tr) + 6
         out.append(text("mono", "▼", 8, x, base - 1, MUTED))
-        out.append(text("mono", "HAPPYINHAPPY · BELGRADE", size, w - 22, base, CAPTION, tr, "end"))
+        out.append(text("mono", "HAPPY_IN_HAPPY · BELGRADE", size, w - 22, base, CAPTION, tr, "end"))
     return "".join(out), h
 
 
@@ -468,7 +468,7 @@ def header(mobile=False):
                     "for images; image-processing pipelines, diffusion models. Belgrade, Serbia. happyin.work")
     svg.defs = probe.defs
     svg.add(sky(svg, w, H, seed=1440, shooting=True), menu, cr)
-    before, after = window(svg, pad, y0, term_w, term_end - y0, "happyinhappy@happyin.work — github",
+    before, after = window(svg, pad, y0, term_w, term_end - y0, "happy_in_happy@happyin.work — github",
                            PHOSPHOR, VOID, 0.62)
     svg.add(before, term_inner, after)
     before, after = window(svg, win_x, win_y, win_w, readme_end - win_y, "README.md", WIN_BLUE)
@@ -721,7 +721,7 @@ def stack(models, mobile):
         out.append(body)
         y += 4 if mobile else 3
     h = y - lead + pad - 2
-    title = "stack.md" if mobile else "happyinhappy@happyin.work — stack.md"
+    title = "stack.md" if mobile else "happy_in_happy@happyin.work — stack.md"
     label = "Stack — " + "; ".join(f"{t}: {v}" for t, v in lines)
     return panel(h, title, PHOSPHOR, True, out, label, mobile, seed=2026)
 
