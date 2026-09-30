@@ -23,6 +23,7 @@ cannot show the phone set.)
 
 import datetime as dt
 import json
+import math
 import os
 import random
 import re
@@ -551,6 +552,31 @@ def compact(v):
     return f"{v // 100 / 10:g}K" if v >= 1000 else str(v)
 
 
+# The growth, told once every CYCLE seconds: bars rise left to right, a trend line
+# draws over them, the totals count up; then ~20 s of stillness. It loops because
+# GitHub loads README images with the page, so a one-shot would finish before
+# anyone scrolled down. Every element's own attributes hold the finished chart,
+# which is what shows wherever SVG animation does not run.
+CYCLE, RISE, STAGGER, SETTLE = 24.0, 0.7, 0.18, 1.0
+EASE_OUT, EASE_IN, FLAT = "0.2 0.8 0.2 1", "0.6 0 0.8 0.2", "0 0 1 1"
+
+
+def timeline(values, times, splines=None):
+    """values at times (seconds, first 0, last CYCLE) -> SMIL values/keyTimes attributes."""
+    attrs = (f'values="{";".join(n(v) for v in values)}" '
+             f'keyTimes="{";".join(f"{t / CYCLE:.4f}" for t in times)}" dur="{n(CYCLE)}s" repeatCount="indefinite"')
+    if splines:
+        attrs += f' calcMode="spline" keySplines="{";".join(splines)}"'
+    return attrs
+
+
+def appear(markup, at, fade=0.3):
+    """Show `markup` from `at` until the reset, fading in and out."""
+    fade_out = CYCLE - SETTLE
+    return (f'<g><animate attributeName="opacity" '
+            f'{timeline([0, 0, 1, 1, 0, 0], [0, at, at + fade, fade_out, fade_out + 0.4, CYCLE])}/>{markup}</g>')
+
+
 def bars(x, y, w, h, months, as_of):
     """Monthly page views as the site would draw them: flat bars, 1px black edge."""
     out, months = [], months[-12:]
@@ -559,17 +585,57 @@ def bars(x, y, w, h, months, as_of):
     tallest = max(v for _, v in months)
     slot = w / len(months)
     bar_w = min(slot * 0.56, 44)
+    fall = CYCLE - SETTLE
+    tops = []
     for i, (ym, views) in enumerate(months):
         year, month = int(ym[:4]), int(ym[5:])
         days = (dt.date(year + month // 12, month % 12 + 1, 1) - dt.timedelta(days=1)).day
         partial = (year, month) == (as_of.year, as_of.month) and as_of.day < days
         bh = (h - top_label - bottom_label - 4) * views / tallest
         cx = x + slot * i + slot / 2
+        tops.append((cx, base - bh))
+        t0 = 0.3 + STAGGER * i
+        times = [0, t0, t0 + RISE, fall, fall + 0.6, CYCLE]
+        splines = [FLAT, EASE_OUT, FLAT, EASE_IN, FLAT]
+        grow = (f'<animate attributeName="y" {timeline([base, base, base - bh, base - bh, base, base], times, splines)}/>'
+                f'<animate attributeName="height" {timeline([0, 0, bh, bh, 0, 0], times, splines)}/>')
         out.append(rect(cx - bar_w / 2, base - bh, bar_w, bh, LOG_GREEN,
-                        ' stroke="#000"' + (' fill-opacity="0.45"' if partial else "")))
-        out.append(text("mono", compact(views), 9.5, cx, base - bh - 5, "#000", anchor="middle"))
+                        ' stroke="#000"' + (' fill-opacity="0.45"' if partial else ""))[:-2] + f">{grow}</rect>")
+        out.append(appear(text("mono", compact(views), 9.5, cx, base - bh - 5, "#000", anchor="middle"),
+                          t0 + RISE))
         out.append(text("mono", MONTHS[month - 1], 9, cx, base + 14, "#555", 0.08, "middle"))
     out.append(rect(x, base, w, 1, "#000"))
+
+    # the trend: a phosphor line drawn across the bar tops, then a live dot on the latest month
+    drawn = 0.3 + STAGGER * len(months) + RISE * 0.6
+    length = sum(math.dist(a, b) for a, b in zip(tops, tops[1:]))
+    points = " ".join(f"{n(px_)},{n(py_ - 8)}" for px_, py_ in tops)
+    draw = timeline([length, length, 0, 0], [0, drawn, drawn + 1.1, CYCLE], [FLAT, EASE_OUT, FLAT])
+    out.append(appear(f'<polyline points="{points}" fill="none" stroke="{PHOSPHOR}" stroke-width="1.6" '
+                      f'stroke-dasharray="{n(length)}" stroke-dashoffset="0">'
+                      f'<animate attributeName="stroke-dashoffset" {draw}/></polyline>', drawn, 0.01))
+    lx, ly = tops[-1][0], tops[-1][1] - 8
+    pulse = ('<animate attributeName="r" values="3.5;11" dur="2.4s" repeatCount="indefinite"/>'
+             '<animate attributeName="opacity" values="0.55;0" dur="2.4s" repeatCount="indefinite"/>')
+    out.append(appear(f'<circle cx="{n(lx)}" cy="{n(ly)}" r="3.5" fill="{PHOSPHOR}" opacity="0.55">{pulse}</circle>'
+                      f'<circle cx="{n(lx)}" cy="{n(ly)}" r="3.5" fill="{PHOSPHOR}"/>', drawn + 1.1))
+    return "".join(out)
+
+
+def count_up(total, size, x, y, fill, steps=10):
+    """A figure that counts up to `total` with the bars, then rests on it (discrete frames)."""
+    out, last = [], None
+    for k in range(1, steps + 1):
+        start = 0.3 + (k - 1) * 0.2
+        end = start + 0.2 if k < steps else CYCLE - SETTLE
+        label = compact(total * k / steps)
+        if label == last:
+            continue
+        last = label
+        frame_ = text("mono-bold", label, size, x, y, fill)
+        values = timeline([0, 1, 0, 0], [0, start, end, CYCLE]).replace('dur=', 'calcMode="discrete" dur=', 1)
+        out.append(f'<g opacity="{1 if k == steps else 0}"><animate attributeName="opacity" '
+                   f'{values}/>{frame_}</g>')
     return "".join(out)
 
 
@@ -592,12 +658,12 @@ def knowledge_base(stats, kb, mobile):
 
     since = dt.date.fromisoformat(stats["since"])
     # the daily average, not the 30-day sum: at a month's end that sum is the last bar's label again
-    cells = [(compact(stats["page_views_total"]), f"page views since {MONTHS[since.month - 1].title()} {since.year}"),
-             (compact(stats["page_views_30d"] / 30), "page views per day · last 30 days")]
+    cells = [(stats["page_views_total"], f"page views since {MONTHS[since.month - 1].title()} {since.year}"),
+             (stats["page_views_30d"] / 30, "page views per day · last 30 days")]
     vy, ends = y + 32, []
     for i, (value, caption) in enumerate(cells):
         cx = px + i * col_w / 2
-        out.append(text("mono-bold", value, 32 if not mobile else 28, cx, vy, LOG_GREEN))
+        out.append(count_up(value, 32 if not mobile else 28, cx, vy, LOG_GREEN))
         cap, end = paragraph([(caption.upper(), style("mono", "#555", tracking=0.08))], 9, cx, vy + 19,
                              col_w / 2 - 16, 13.5, max_lines=2)
         out.append(cap)
