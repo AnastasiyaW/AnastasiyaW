@@ -2,10 +2,11 @@
   "_source": "happyin.work: pages/_assets/site-data.js (projectGroups, blurbs shortened for the one-row window) and the Person node's knowsAbout; the knowledge-base blurb joins the site's happyin.space card with the knowledge-space repo description; kept out of build.py so the code carries no project names",
   "production": [
     {
-      "slug": "glam",
-      "name": "glam.ai",
-      "kicker": "ML engineering & team lead (ex-) · 4M+ users",
-      "blurb": "Identity-preserving photoshoots; five chained Qwen pipelines in production."
+      "slug": "crossweft",
+      "name": "crossweft",
+      "icon": "tulip",
+      "kicker": "Open source · checks for AI coding agents",
+      "blurb": "Guards the seams between languages: an agent can't say Done until both sides agree."
     },
     {
       "slug": "mashinki",

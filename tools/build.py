@@ -500,7 +500,10 @@ def projects(mobile):
 
     def card(p, x, y, body_h=None):
         out, cy = [], y + BODY_TOP + 12 + name_size * 0.9
-        out.append(rect(x + px, cy - 13, 10, 9, p["swatch"], ' stroke="#000"'))
+        if p.get("icon") in ICONS:  # a pixel sprite in place of the colour swatch
+            out.extend(pixel_icon(ICONS[p["icon"]], x + px - 1.5, cy - 15, 1.5))
+        else:
+            out.append(rect(x + px, cy - 13, 10, 9, p["swatch"], ' stroke="#000"'))
         out.append(text("serif-italic", fit("serif-italic", p["name"], name_size, iw - 17), name_size,
                         x + px + 17, cy, "#000"))
         cy += 18
@@ -733,7 +736,21 @@ with open(os.path.join(HERE, "happyin-copy.json"), encoding="utf-8") as _fh:
     COPY = json.load(_fh)
 
 # swatch (the site's projects/ list) and window accent, in the order of COPY["production"]
-CARD_COLOURS = [("#ffd0a0", WIN_BLUE), ("#c0d8f0", WIN_GREEN), ("#f0c0d0", WIN_PURPLE), ("#e0d090", WIN_RUST)]
+CARD_COLOURS = [("#C4502F", "#C4502F"), ("#c0d8f0", WIN_GREEN), ("#f0c0d0", WIN_PURPLE), ("#e0d090", WIN_RUST)]
+
+# Pixel sprites a card can show instead of its swatch ("icon" in happyin-copy.json).
+# tulip: the Crossweft kit's tulip-8x.png sampled back to its 10x10 grid.
+ICONS = {
+    "tulip": ({"a": "#C4502F", "b": "#6F8B4E"},
+              ["...a.a....", "..aaaaa...", "..aaaaa...", "...aaa....", "....b.....",
+               "....b.....", "....b.....", "..bbb.....", "....b.....", "....b....."]),
+}
+
+
+def pixel_icon(icon, x, y, size):
+    palette, grid = icon
+    return [rect(x + c * size, y + r * size, size, size, palette[ch])
+            for r, row in enumerate(grid) for c, ch in enumerate(row) if ch != "."]
 PRODUCTION = [{**p, "swatch": swatch, "accent": accent}
               for p, (swatch, accent) in zip(COPY["production"], CARD_COLOURS, strict=True)]
 STACK = [tuple(x) for x in COPY["stack"]]
