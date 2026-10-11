@@ -495,32 +495,44 @@ def projects(mobile):
     # small caps stay >= 11px on screen at GitHub's scale; every card reserves the
     # most kicker lines any card needs, so the blurbs start on one line across the row
     kicker_size, kicker_lead = (12, 16) if mobile else (11, 15)
-    kicker_style = style("mono", "#555", tracking=0.04)
-    kicker_lines = max(len(wrap([(p["kicker"].upper(), kicker_style)], kicker_size, iw)) for p in PRODUCTION)
+    def look(p):
+        return CARD_THEMES.get(p.get("theme"), CARD_THEMES[None])
+
+    def kicker_run(p):
+        t = look(p)
+        size = kicker_size * t["kicker_scale"]
+        return [(p["kicker"].upper(), style(t["kicker_face"], t["kicker"], tracking=0.04))], size
+
+    kicker_lines = max(len(wrap(*kicker_run(p), iw)) for p in PRODUCTION)
 
     def card(p, x, y, body_h=None):
+        t = look(p)
         out, cy = [], y + BODY_TOP + 12 + name_size * 0.9
+        name_x = 17
         if p.get("icon") in ICONS:  # a pixel sprite in place of the colour swatch
-            out.extend(pixel_icon(ICONS[p["icon"]], x + px - 1.5, cy - 15, 1.5))
+            cell = 1.6
+            out.extend(pixel_icon(ICONS[p["icon"]], x + px, cy - 16, cell))
+            name_x = len(ICONS[p["icon"]][1][0]) * cell + 6
         else:
             out.append(rect(x + px, cy - 13, 10, 9, p["swatch"], ' stroke="#000"'))
-        out.append(text("serif-italic", fit("serif-italic", p["name"], name_size, iw - 17), name_size,
-                        x + px + 17, cy, "#000"))
+        name = p["name"].upper() if t["upper"] else p["name"]
+        out.append(text(t["name_face"], fit(t["name_face"], name, name_size, iw - name_x), name_size,
+                        x + px + name_x, cy, t["name"]))
         cy += 18
-        k, _ = paragraph([(p["kicker"].upper(), kicker_style)], kicker_size, x + px, cy, iw, kicker_lead)
+        k, _ = paragraph(kicker_run(p)[0], kicker_run(p)[1], x + px, cy, iw, kicker_lead)
         out.append(k)
         cy += kicker_lines * kicker_lead + 4
-        b, cy = paragraph([(p["blurb"], style("times", "#111"))], blurb_size, x + px, cy, iw, blurb_lead)
+        b, cy = paragraph([(p["blurb"], style("times", t["blurb"]))], blurb_size, x + px, cy, iw, blurb_lead)
         out.append(b)
         content = cy - blurb_lead - y
         bottom = y + (body_h if body_h is not None else content)
         if mobile:  # the whole image is the link; a URL line would only be small print
             return out, content, bottom + 14 - y
         cy = bottom + 12
-        out.append(hline(x + px, x + px + iw, cy, "#ccc", "1 2"))
+        out.append(hline(x + px, x + px + iw, cy, t["rule"], "1 2"))
         cy += 17
         url = fit("mono", f"happyin.work/{p['slug']}/", 11, iw - width("mono", "▸ ", 11))
-        out.append(runs([("▸ ", style("mono", "#000")), (url, style("mono", WIN_BLUE))], 11, x + px, cy)[0])
+        out.append(runs([("▸ ", style("mono", t["url_mark"])), (url, style("mono", t["url"]))], 11, x + px, cy)[0])
         return out, content, cy + 10 - y
 
     tallest = max(card(p, 0, 0)[1] for p in PRODUCTION)
@@ -534,7 +546,7 @@ def projects(mobile):
         x = pad + (i % cols) * (cw + gap)
         y = (i // cols) * (card_h + gap)
         parts, _, _ = card(p, x, y, tallest)
-        before, after = window(svg, x, y, cw, card_h, f"{p['slug']}.md", p["accent"])
+        before, after = window(svg, x, y, cw, card_h, f"{p['slug']}.md", p["accent"], body=look(p)["body"])
         svg.add(before, *parts, after)
     return svg.render()
 
@@ -739,11 +751,24 @@ with open(os.path.join(HERE, "happyin-copy.json"), encoding="utf-8") as _fh:
 CARD_COLOURS = [("#C4502F", "#C4502F"), ("#c0d8f0", WIN_GREEN), ("#f0c0d0", WIN_PURPLE), ("#e0d090", WIN_RUST)]
 
 # Pixel sprites a card can show instead of its swatch ("icon" in happyin-copy.json).
-# tulip: the Crossweft kit's tulip-8x.png sampled back to its 10x10 grid.
+# weave: the Crossweft mark (kit mark-on-terracotta-44px.png sampled back to its 11x11 grid);
+# "." stays transparent so the card's terracotta shows through, as on the plugin's header.
 ICONS = {
-    "tulip": ({"a": "#C4502F", "b": "#6F8B4E"},
-              ["...a.a....", "..aaaaa...", "..aaaaa...", "...aaa....", "....b.....",
-               "....b.....", "....b.....", "..bbb.....", "....b.....", "....b....."]),
+    "weave": ({"a": "#141210", "b": "#EFE0B6"},
+              ["aaabbaaaabb", "aaabbaaaabb", "bb.bb.bb.bb", "bbaaaabbaaa", "bbaaaabbaaa",
+               "bb.bb.bb.bb", "aaabbaaaabb", "aaabbaaaabb", "bb.bb.bb.bb", "bbaaaabbaaa",
+               "bbaaaabbaaa"]),
+}
+
+# A card's look ("theme" in happyin-copy.json); None is the site's RetroWin card.
+# crossweft follows the plugin's own kit: terracotta ground, cream type, Oswald caps, VT323 labels.
+CARD_THEMES = {
+    None: {"body": "#fff", "name_face": "serif-italic", "name": "#000", "upper": False,
+           "kicker_face": "mono", "kicker": "#555", "kicker_scale": 1, "blurb": "#111",
+           "rule": "#ccc", "url_mark": "#000", "url": WIN_BLUE},
+    "crossweft": {"body": "#C4502F", "name_face": "display", "name": "#EFE0B6", "upper": True,
+                  "kicker_face": "pixel", "kicker": "#EFE0B6", "kicker_scale": 1.3, "blurb": "#EFE0B6",
+                  "rule": "#EFE0B6", "url_mark": "#EFE0B6", "url": "#EFE0B6"},
 }
 
 

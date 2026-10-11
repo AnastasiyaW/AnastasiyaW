@@ -4,7 +4,8 @@
     {
       "slug": "crossweft",
       "name": "crossweft",
-      "icon": "tulip",
+      "icon": "weave",
+      "theme": "crossweft",
       "kicker": "Open source · checks for AI coding agents",
       "blurb": "Guards the seams between languages: an agent can't say Done until both sides agree."
     },

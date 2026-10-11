@@ -27,6 +27,13 @@ PINNED = [
     ("ba95515f1333efe9342c2ad988b9c2f6bef6dbad", "ofl/tinos/Tinos-Italic.ttf",
      "Tinos-Italic.ttf",
      "5942266ed398b155d7dc23e36833e7ec6be988f2439bdbeb8ef1bede808eaa91"),
+    # the Crossweft plugin's own type, for its card: Oswald caps for the name, VT323 for labels
+    ("b6f0fe1740573b70ee367fbaba04b7586be85af3", "ofl/oswald/Oswald%5Bwght%5D.ttf",
+     "Oswald[wght].ttf",
+     "5b38c246e255a12f5712d640d56bcced0472466fc68983d2d0410ec0457c2817"),
+    ("eb8781e516576b414603df8cd267c0f21c9b4ee2", "ofl/vt323/VT323-Regular.ttf",
+     "VT323-Regular.ttf",
+     "cf4de751ada78ceac033dbe16a687742939995b77bc2a052ae17a4957958594d"),
 ]
 
 

@@ -25,6 +25,8 @@ FACES = {
     "serif-italic": ("InstrumentSerif-Italic.ttf", {}, "i"),  # RHead: window headings
     "times": ("Tinos-Regular.ttf", {}, "t"),  # running text the site sets in `Times, serif`
     "times-italic": ("Tinos-Italic.ttf", {}, "u"),
+    "display": ("Oswald[wght].ttf", {"wght": 600}, "o"),  # Crossweft plugin headlines
+    "pixel": ("VT323-Regular.ttf", {}, "p"),  # Crossweft plugin labels
 }
 
 # Glyphs placed since the last glyph_defs() call: one document at a time.
